@@ -232,26 +232,42 @@ nav[hidden],
   display: none !important;
 }
 
-.tab-btn {
+/* Abas: nunca herdam o rosa sólido dos botões de ação */
+header .tabs button.tab-btn {
   flex: 0 0 auto;
+  height: auto;
+  min-height: 34px;
+  padding: 7px 14px;
+  border-radius: 999px;
   border: 1px solid transparent;
   background: transparent;
   color: var(--text-muted);
-  padding: 8px 13px;
-  border-radius: 999px;
   font-size: 0.78rem;
   font-weight: 600;
+  box-shadow: none;
   cursor: pointer;
   transition: background var(--dur) var(--ease), color var(--dur) var(--ease), border-color var(--dur) var(--ease), transform 0.12s var(--ease);
 }
 
-.tab-btn:hover { color: var(--text-secondary); background: var(--surface-2); }
-.tab-btn:active { transform: scale(0.96); }
+header .tabs button.tab-btn:hover:not(:disabled) {
+  color: var(--text-secondary);
+  background: var(--surface-2);
+}
 
-.tab-btn.active {
-  background: var(--accent-soft);
-  color: var(--accent-hover);
-  border-color: var(--accent-ring);
+header .tabs button.tab-btn:active {
+  transform: scale(0.96);
+}
+
+header .tabs button.tab-btn.active {
+  background: rgba(244, 63, 94, 0.14);
+  color: #fda4af;
+  border-color: rgba(244, 63, 94, 0.35);
+  box-shadow: none;
+}
+
+header .tabs button.tab-btn:disabled {
+  opacity: 0.4;
+  filter: none;
 }
 
 /* ========== MAIN ========== */
@@ -848,4 +864,140 @@ button.danger:disabled { opacity: 0.38; }
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+
+/* ========== STUDIO STAGE (canvas profissional) ========== */
+.panel-stage {
+  margin: 0;
+}
+.stage-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 10px;
+  box-shadow: var(--shadow-sm);
+  min-height: calc(100dvh - 160px);
+  max-height: calc(100dvh - 140px);
+}
+
+.stage-top {
+  flex-shrink: 0;
+}
+
+.dropzone-compact {
+  padding: 10px 14px !important;
+  border-radius: var(--radius-sm);
+}
+.dropzone-compact p {
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.stage-viewport {
+  flex: 1 1 auto;
+  margin-top: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.stage-viewport .gen-viewport {
+  flex: 1;
+  height: auto !important;
+  min-height: 220px;
+  max-height: none;
+}
+
+.stage-toolbar {
+  flex-shrink: 0;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 8px;
+  margin-top: 2px;
+}
+
+.toolbar-scroll {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 8px;
+  align-items: center;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding: 2px 2px 6px;
+}
+.toolbar-scroll::-webkit-scrollbar { display: none; }
+
+.toolbar-scroll > button {
+  flex: 0 0 auto;
+  height: 36px;
+  padding: 0 12px;
+  font-size: 0.78rem;
+}
+
+.toolbar-sep {
+  width: 1px;
+  height: 22px;
+  background: var(--border);
+  flex-shrink: 0;
+  margin: 0 2px;
+}
+
+.status-compact {
+  border-top: none !important;
+  margin-top: 0 !important;
+  padding-top: 4px !important;
+  font-size: 0.72rem !important;
+  color: var(--text-muted) !important;
+}
+
+/* Tool panels (crop/draw/text) — faixa compacta */
+.panel-tools .tools-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 12px;
+  box-shadow: var(--shadow-sm);
+}
+
+.tools-hint {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+  line-height: 1.4;
+}
+
+.inline-lab {
+  font-size: 0.72rem !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  color: var(--text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.inline-lab.chk {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-secondary) !important;
+  text-transform: none !important;
+}
+
+.panel-tools input[type="text"] {
+  flex: 1 1 140px;
+  min-width: 120px;
+  height: 36px;
+}
+.panel-tools input[type="color"] {
+  width: 36px;
+  height: 36px;
+  padding: 2px;
+  flex-shrink: 0;
+}
+
+/* Main menos padding no studio para ganhar área */
+main {
+  padding-top: 12px;
 }

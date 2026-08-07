@@ -66,43 +66,43 @@
   <main>
     <!-- ========== MODO EDITOR GERAL (principal) ========== -->
     <div id="mode-editor" class="app-mode active">
-      <section id="epanel-canvas" class="panel active">
-        <div class="card">
-          <h2>Canvas</h2>
-          <p class="hint">Abra uma imagem. Arraste com 1 dedo para mover · pinça ou botões para zoom. Pixel art usa nearest-neighbor.</p>
-          <div class="row">
-            <div class="dropzone" id="genDrop" style="flex:1;padding:16px">
-              <p>Toque ou arraste uma imagem</p>
+      <section id="epanel-canvas" class="panel active panel-stage">
+        <div class="stage-card">
+          <div class="stage-top">
+            <div class="dropzone dropzone-compact" id="genDrop">
+              <p>Abrir imagem</p>
               <input type="file" id="genInput" accept="image/*">
             </div>
           </div>
-          <div class="gen-workspace">
+          <div class="gen-workspace stage-viewport">
             <div class="gen-viewport" id="genViewport">
               <canvas id="genCanvas"></canvas>
             </div>
           </div>
-          <div class="row" style="margin-top:10px">
-            <button type="button" id="genZoomOut" class="secondary" disabled>− Zoom</button>
-            <button type="button" id="genZoomIn" class="secondary" disabled>+ Zoom</button>
-            <button type="button" id="genZoomFit" class="secondary" disabled>Cabem</button>
-            <button type="button" id="genZoom1" class="secondary" disabled>1:1</button>
-            <button type="button" id="genUndo" class="secondary" disabled>Desfazer</button>
-            <button type="button" id="genReset" class="secondary" disabled>Resetar</button>
+          <div class="stage-toolbar" id="genToolbar">
+            <div class="toolbar-scroll">
+              <button type="button" id="genZoomOut" class="secondary" disabled>−</button>
+              <button type="button" id="genZoomIn" class="secondary" disabled>+</button>
+              <button type="button" id="genZoomFit" class="secondary" disabled>Cabem</button>
+              <button type="button" id="genZoom1" class="secondary" disabled>1:1</button>
+              <span class="toolbar-sep"></span>
+              <button type="button" id="genUndo" class="secondary" disabled>Desfazer</button>
+              <button type="button" id="genReset" class="secondary" disabled>Resetar</button>
+            </div>
           </div>
-          <p class="status-msg" id="genStatus">Editor geral · modo principal do app</p>
+          <p class="status-msg status-compact" id="genStatus">Studio · abra uma imagem</p>
         </div>
       </section>
 
-      <section id="epanel-crop" class="panel">
-        <div class="card">
-          <h2>Cortar</h2>
-          <p class="hint">Arraste no canvas para marcar a área · <strong>Aplicar corte</strong> confirma. Use zoom antes se precisar de precisão.</p>
-          <div class="row">
+      <section id="epanel-crop" class="panel panel-tools">
+        <div class="tools-card">
+          <p class="tools-hint">Marque a área no <strong>Canvas</strong> · depois aplique o corte aqui.</p>
+          <div class="toolbar-scroll">
             <button type="button" id="genCropStart" disabled>Marcar área</button>
-            <button type="button" id="genCropApply" class="success" disabled>Aplicar corte</button>
+            <button type="button" id="genCropApply" class="success" disabled>Aplicar</button>
             <button type="button" id="genCropCancel" class="secondary" disabled>Cancelar</button>
           </div>
-          <p class="status-msg" id="genCropStatus"></p>
+          <p class="status-msg status-compact" id="genCropStatus"></p>
         </div>
       </section>
 
@@ -161,49 +161,35 @@
       </section>
 
 
-      <section id="epanel-draw" class="panel">
-        <div class="card">
-          <h2>Pincel</h2>
-          <p class="hint">Desenha na <strong>camada ativa</strong> (ou cria camada "Traço" se não houver). Pixel art: sem suavização.</p>
-          <div class="row">
-            <button type="button" id="genBrushOn" disabled>Ativar pincel</button>
+      <section id="epanel-draw" class="panel panel-tools">
+        <div class="tools-card">
+          <p class="tools-hint">Desenha no <strong>Canvas</strong> · camada ativa.</p>
+          <div class="toolbar-scroll">
+            <button type="button" id="genBrushOn" disabled>Pincel</button>
             <button type="button" id="genEraserOn" class="secondary" disabled>Borracha</button>
-            <button type="button" id="genBrushOff" class="secondary" disabled>Desligar</button>
-          </div>
-          <div class="tol-row">
-            <label>Tamanho</label>
-            <input type="range" id="genBrushSize" min="1" max="64" value="4" disabled>
+            <button type="button" id="genBrushOff" class="secondary" disabled>Off</button>
+            <span class="toolbar-sep"></span>
+            <label class="inline-lab">Tam</label>
+            <input type="range" id="genBrushSize" min="1" max="64" value="4" disabled style="width:90px">
             <span id="genBrushSizeVal">4</span>
+            <input type="color" id="genBrushColor" value="#e85d4c" disabled>
+            <label class="inline-lab chk"><input type="checkbox" id="genBrushPixel" checked> Pixel</label>
           </div>
-          <div class="row" style="align-items:center">
-            <label>Cor</label>
-            <input type="color" id="genBrushColor" value="#e85d4c" disabled style="width:48px;height:36px;border:none;background:transparent">
-            <label style="color:var(--text)"><input type="checkbox" id="genBrushPixel" checked> Pixel (quadrado)</label>
-          </div>
-          <p class="status-msg" id="genDrawStatus"></p>
+          <p class="status-msg status-compact" id="genDrawStatus"></p>
         </div>
       </section>
 
-      <section id="epanel-text" class="panel">
-        <div class="card">
-          <h2>Texto</h2>
-          <p class="hint">Gera uma nova camada com o texto rasterizado (pode mover depois em Colagem).</p>
-          <div class="row">
-            <input type="text" id="genTextInput" placeholder="Digite o texto…" style="flex:1;min-width:140px" disabled>
+      <section id="epanel-text" class="panel panel-tools">
+        <div class="tools-card">
+          <p class="tools-hint">Texto vira camada · arraste no Canvas para mover.</p>
+          <div class="toolbar-scroll" style="flex-wrap:wrap">
+            <input type="text" id="genTextInput" placeholder="Digite o texto…" disabled>
+            <input type="number" id="genTextSize" value="24" min="8" max="256" style="width:64px" disabled title="Tamanho">
+            <input type="color" id="genTextColor" value="#f2efe8" disabled>
+            <label class="inline-lab chk"><input type="checkbox" id="genTextPixel" checked> Pixel</label>
+            <button type="button" id="genTextAdd" disabled>Adicionar</button>
           </div>
-          <div class="row" style="margin-top:8px;align-items:flex-end">
-            <div>
-              <label>Tamanho</label><br>
-              <input type="number" id="genTextSize" value="24" min="8" max="256" style="width:80px" disabled>
-            </div>
-            <div>
-              <label>Cor</label><br>
-              <input type="color" id="genTextColor" value="#f2efe8" disabled style="width:48px;height:36px;border:none;background:transparent">
-            </div>
-            <label style="color:var(--text)"><input type="checkbox" id="genTextPixel" checked> Fonte pixel</label>
-            <button type="button" id="genTextAdd" disabled>Adicionar texto</button>
-          </div>
-          <p class="status-msg" id="genTextStatus"></p>
+          <p class="status-msg status-compact" id="genTextStatus"></p>
         </div>
       </section>
 
