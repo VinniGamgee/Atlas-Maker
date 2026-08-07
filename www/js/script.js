@@ -1527,7 +1527,12 @@
     var scale = 1;
     var panX = 0, panY = 0;
     var genUndoStack = [];
-    var MAX_GEN_UNDO = 12;
+    var MAX_GEN_UNDO = 20;
+    var genHistoryLabels = [];
+
+    var brushMode = null; // null | 'brush' | 'eraser'
+    var brushDrawing = false;
+    var brushLast = null;
 
     var cropMode = false;
     var cropStart = null;
@@ -1561,7 +1566,10 @@
       ['genZoomOut','genZoomIn','genZoomFit','genZoom1','genUndo','genReset',
        'genCropStart','genExport','genToAtlas','genToRemover',
        'genRotL','genRotR','genFlipH','genFlipV','genResizeApply',
-       'genLayerMove','genLayerMerge'].forEach(function (id) {
+       'genLayerMove','genLayerMerge',
+       'genBrushOn','genEraserOn','genBrushOff','genBrushSize','genBrushColor',
+       'genTextInput','genTextSize','genTextColor','genTextAdd',
+       'genUndo2','genClearHistory'].forEach(function (id) {
         var el = document.getElementById(id);
         if (el) el.disabled = !on;
       });
@@ -1569,8 +1577,15 @@
       var rh = document.getElementById('genResizeH');
       if (rw) rw.disabled = !on;
       if (rh) rh.disabled = !on;
+      var brushPx = document.getElementById('genBrushPixel');
+      var textPx = document.getElementById('genTextPixel');
+      if (brushPx) brushPx.disabled = !on;
+      if (textPx) textPx.disabled = !on;
       document.getElementById('genUndo').disabled = !on || genUndoStack.length === 0;
+      var u2 = document.getElementById('genUndo2');
+      if (u2) u2.disabled = !on || genUndoStack.length === 0;
       updateLayerButtons();
+      renderHistoryList();
     }
 
     function updateLayerButtons() {
@@ -1588,18 +1603,65 @@
       if (bsc) bsc.disabled = !act;
     }
 
-    function pushGenUndo() {
+    function pushGenUndo(label) {
       try {
         compositeToWork();
         genUndoStack.push({
           w: workCanvas.width,
           h: workCanvas.height,
           data: workCtx.getImageData(0, 0, workCanvas.width, workCanvas.height),
-          layersJson: snapshotLayers()
+          layersJson: snapshotLayers(),
+          label: label || 'Edição'
         });
-        if (genUndoStack.length > MAX_GEN_UNDO) genUndoStack.shift();
+        genHistoryLabels.push(label || 'Edição');
+        if (genUndoStack.length > MAX_GEN_UNDO) {
+          genUndoStack.shift();
+          genHistoryLabels.shift();
+        }
         document.getElementById('genUndo').disabled = false;
+        var u2 = document.getElementById('genUndo2');
+        if (u2) u2.disabled = false;
+        renderHistoryList();
       } catch (e) { console.log(e); }
+    }
+
+    function renderHistoryList() {
+      var list = document.getElementById('genHistoryList');
+      if (!list) return;
+      list.innerHTML = '';
+      if (!genUndoStack.length) {
+        list.innerHTML = '<p class="hint">Nenhum estado salvo ainda.</p>';
+        return;
+      }
+      for (var i = genUndoStack.length - 1; i >= 0; i--) {
+        (function (idx) {
+          var item = genUndoStack[idx];
+          var div = document.createElement('div');
+          div.className = 'layer-item';
+          div.innerHTML = '<div class="meta"><strong>' + (item.label || ('Estado ' + (idx + 1))) +
+            '</strong><span>#' + (idx + 1) + ' · snapshot</span></div>';
+          div.onclick = function () { restoreHistoryIndex(idx); };
+          list.appendChild(div);
+        })(i);
+      }
+    }
+
+    function restoreHistoryIndex(idx) {
+      if (idx < 0 || idx >= genUndoStack.length) return;
+      var snap = genUndoStack[idx];
+      // discard future
+      genUndoStack = genUndoStack.slice(0, idx);
+      genHistoryLabels = genHistoryLabels.slice(0, idx);
+      if (snap.layersJson) {
+        restoreLayers(snap.layersJson);
+      }
+      document.getElementById('genUndo').disabled = genUndoStack.length === 0;
+      var u2 = document.getElementById('genUndo2');
+      if (u2) u2.disabled = genUndoStack.length === 0;
+      renderHistoryList();
+      var hs = document.getElementById('genHistoryStatus');
+      if (hs) hs.textContent = 'Restaurado: ' + (snap.label || 'estado');
+      genStatus('Histórico restaurado.');
     }
 
     function snapshotLayers() {
@@ -1730,6 +1792,8 @@
           genImage = img;
           layers = [];
           genUndoStack = [];
+          genHistoryLabels = [];
+          brushMode = null;
           cropMode = false;
           cropBox = null;
           cropEl.style.display = 'none';
@@ -1738,7 +1802,7 @@
           addLayerFromImage(img, file.name || 'Base');
           fitScale();
           setGenEnabled(true);
-          genStatus(img.width + '×' + img.height + ' · v2 colagem/transformar');
+          genStatus(img.width + '×' + img.height + ' · v3 pincel/texto/histórico');
         };
         img.src = ev.target.result;
       };
@@ -1837,9 +1901,56 @@
     var pointers = new Map();
     var lastPinchDist = 0;
 
+    function ensurePaintLayer() {
+      if (layers.length && activeLayer >= 0) return layers[activeLayer];
+      var c = document.createElement('canvas');
+      c.width = Math.max(workCanvas.width, 64);
+      c.height = Math.max(workCanvas.height, 64);
+      layers.push({ id: Date.now(), name: 'Traço', canvas: c, x: 0, y: 0, scale: 1 });
+      activeLayer = layers.length - 1;
+      renderLayerList();
+      updateLayerButtons();
+      return layers[activeLayer];
+    }
+
+    function paintAt(ix, iy) {
+      var L = ensurePaintLayer();
+      var size = parseInt(document.getElementById('genBrushSize').value, 10) || 4;
+      var pixel = document.getElementById('genBrushPixel').checked;
+      var ctx = L.canvas.getContext('2d');
+      ctx.imageSmoothingEnabled = false;
+      // convert workspace coords to layer local
+      var lx = Math.round((ix - L.x) / L.scale);
+      var ly = Math.round((iy - L.y) / L.scale);
+      if (brushMode === 'eraser') {
+        ctx.clearRect(lx - Math.floor(size / 2), ly - Math.floor(size / 2), size, size);
+      } else {
+        ctx.fillStyle = document.getElementById('genBrushColor').value || '#e85d4c';
+        if (pixel) {
+          ctx.fillRect(lx - Math.floor(size / 2), ly - Math.floor(size / 2), size, size);
+        } else {
+          ctx.beginPath();
+          ctx.arc(lx, ly, size / 2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+      compositeToWork();
+      applyWorkToView();
+    }
+
     genViewport.addEventListener('pointerdown', function (e) {
       genViewport.setPointerCapture(e.pointerId);
       pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (brushMode && pointers.size === 1) {
+        pushGenUndo(brushMode === 'eraser' ? 'Borracha' : 'Pincel');
+        brushDrawing = true;
+        var rect = genViewport.getBoundingClientRect();
+        var ix = (e.clientX - rect.left - panX) / scale;
+        var iy = (e.clientY - rect.top - panY) / scale;
+        brushLast = { x: ix, y: iy };
+        paintAt(ix, iy);
+        return;
+      }
       if (cropMode && pointers.size === 1) {
         var rect = genViewport.getBoundingClientRect();
         var ix = (e.clientX - rect.left - panX) / scale;
@@ -1854,6 +1965,25 @@
       var dx = e.clientX - prev.x;
       var dy = e.clientY - prev.y;
       pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+      if (brushMode && brushDrawing && pointers.size === 1) {
+        var rectB = genViewport.getBoundingClientRect();
+        var ix = (e.clientX - rectB.left - panX) / scale;
+        var iy = (e.clientY - rectB.top - panY) / scale;
+        // interpolate
+        if (brushLast) {
+          var dist = Math.hypot(ix - brushLast.x, iy - brushLast.y);
+          var steps = Math.max(1, Math.ceil(dist / 2));
+          for (var s = 1; s <= steps; s++) {
+            var t = s / steps;
+            paintAt(brushLast.x + (ix - brushLast.x) * t, brushLast.y + (iy - brushLast.y) * t);
+          }
+        } else {
+          paintAt(ix, iy);
+        }
+        brushLast = { x: ix, y: iy };
+        return;
+      }
 
       if (cropMode && cropStart && pointers.size === 1) {
         var rect = genViewport.getBoundingClientRect();
@@ -1901,6 +2031,11 @@
       }
     });
     function endPointer(e) {
+      if (brushDrawing) {
+        brushDrawing = false;
+        brushLast = null;
+        renderLayerList();
+      }
       pointers.delete(e.pointerId);
       if (pointers.size < 2) lastPinchDist = 0;
       if (cropMode && cropBox && cropBox.w > 2 && cropBox.h > 2) {
@@ -2207,6 +2342,87 @@
       compositeToWork();
       applyWorkToView();
       renderLayerList();
+    };
+
+    // --- brush ---
+    function setBrushMode(mode) {
+      brushMode = mode;
+      layerMoveMode = false;
+      cropMode = false;
+      genViewport.classList.remove('layer-move-mode');
+      var st = document.getElementById('genDrawStatus');
+      if (!mode) {
+        if (st) st.textContent = 'Pincel desligado.';
+        return;
+      }
+      if (st) st.textContent = mode === 'eraser'
+        ? 'Borracha ativa · desenhe no canvas'
+        : 'Pincel ativo · desenhe no canvas';
+      document.querySelector('[data-etab="canvas"]').click();
+    }
+    document.getElementById('genBrushOn').onclick = function () { setBrushMode('brush'); };
+    document.getElementById('genEraserOn').onclick = function () { setBrushMode('eraser'); };
+    document.getElementById('genBrushOff').onclick = function () { setBrushMode(null); };
+    document.getElementById('genBrushSize').oninput = function () {
+      document.getElementById('genBrushSizeVal').textContent = document.getElementById('genBrushSize').value;
+    };
+
+    // --- text ---
+    document.getElementById('genTextAdd').onclick = function () {
+      var text = (document.getElementById('genTextInput').value || '').trim();
+      if (!text) {
+        document.getElementById('genTextStatus').textContent = 'Digite um texto.';
+        return;
+      }
+      pushGenUndo('Texto');
+      var size = parseInt(document.getElementById('genTextSize').value, 10) || 24;
+      var color = document.getElementById('genTextColor').value || '#fff';
+      var pixel = document.getElementById('genTextPixel').checked;
+      var font = pixel
+        ? size + 'px "Courier New", monospace'
+        : 'bold ' + size + 'px system-ui, sans-serif';
+      // measure
+      var measure = document.createElement('canvas').getContext('2d');
+      measure.font = font;
+      var metrics = measure.measureText(text);
+      var tw = Math.ceil(metrics.width) + 8;
+      var th = Math.ceil(size * 1.4) + 8;
+      var c = document.createElement('canvas');
+      c.width = Math.max(8, tw);
+      c.height = Math.max(8, th);
+      var ctx = c.getContext('2d');
+      ctx.imageSmoothingEnabled = false;
+      ctx.font = font;
+      ctx.fillStyle = color;
+      ctx.textBaseline = 'top';
+      ctx.fillText(text, 4, 4);
+      layers.push({
+        id: Date.now(),
+        name: 'Texto: ' + text.slice(0, 12),
+        canvas: c,
+        x: Math.round((workCanvas.width - c.width) / 2) || 0,
+        y: Math.round((workCanvas.height - c.height) / 2) || 0,
+        scale: 1
+      });
+      activeLayer = layers.length - 1;
+      compositeToWork();
+      applyWorkToView();
+      renderLayerList();
+      updateLayerButtons();
+      document.getElementById('genTextStatus').textContent = 'Camada de texto criada · mova em Colagem';
+    };
+
+    // --- history UI ---
+    document.getElementById('genUndo2').onclick = function () {
+      document.getElementById('genUndo').click();
+    };
+    document.getElementById('genClearHistory').onclick = function () {
+      genUndoStack = [];
+      genHistoryLabels = [];
+      document.getElementById('genUndo').disabled = true;
+      document.getElementById('genUndo2').disabled = true;
+      renderHistoryList();
+      document.getElementById('genHistoryStatus').textContent = 'Histórico limpo.';
     };
 
     // export / bridges

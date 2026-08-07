@@ -28,8 +28,11 @@
     <nav class="tabs" id="editorTabs">
       <button type="button" class="tab-btn active" data-etab="canvas">Canvas</button>
       <button type="button" class="tab-btn" data-etab="crop">Cortar</button>
+      <button type="button" class="tab-btn" data-etab="draw">Pincel</button>
+      <button type="button" class="tab-btn" data-etab="text">Texto</button>
       <button type="button" class="tab-btn" data-etab="transform">Transformar</button>
       <button type="button" class="tab-btn" data-etab="layers">Colagem</button>
+      <button type="button" class="tab-btn" data-etab="history">Histórico</button>
       <button type="button" class="tab-btn" data-etab="bg">Fundo</button>
       <button type="button" class="tab-btn" data-etab="export">Exportar</button>
     </nav>
@@ -129,6 +132,66 @@
             <span id="genLayerScaleVal">100</span>
           </div>
           <p class="status-msg" id="genLayerStatus"></p>
+        </div>
+      </section>
+
+
+      <section id="epanel-draw" class="panel">
+        <div class="card">
+          <h2>Pincel</h2>
+          <p class="hint">Desenha na <strong>camada ativa</strong> (ou cria camada "Traço" se não houver). Pixel art: sem suavização.</p>
+          <div class="row">
+            <button type="button" id="genBrushOn" disabled>Ativar pincel</button>
+            <button type="button" id="genEraserOn" class="secondary" disabled>Borracha</button>
+            <button type="button" id="genBrushOff" class="secondary" disabled>Desligar</button>
+          </div>
+          <div class="tol-row">
+            <label>Tamanho</label>
+            <input type="range" id="genBrushSize" min="1" max="64" value="4" disabled>
+            <span id="genBrushSizeVal">4</span>
+          </div>
+          <div class="row" style="align-items:center">
+            <label>Cor</label>
+            <input type="color" id="genBrushColor" value="#e85d4c" disabled style="width:48px;height:36px;border:none;background:transparent">
+            <label style="color:var(--text)"><input type="checkbox" id="genBrushPixel" checked> Pixel (quadrado)</label>
+          </div>
+          <p class="status-msg" id="genDrawStatus"></p>
+        </div>
+      </section>
+
+      <section id="epanel-text" class="panel">
+        <div class="card">
+          <h2>Texto</h2>
+          <p class="hint">Gera uma nova camada com o texto rasterizado (pode mover depois em Colagem).</p>
+          <div class="row">
+            <input type="text" id="genTextInput" placeholder="Digite o texto…" style="flex:1;min-width:140px" disabled>
+          </div>
+          <div class="row" style="margin-top:8px;align-items:flex-end">
+            <div>
+              <label>Tamanho</label><br>
+              <input type="number" id="genTextSize" value="24" min="8" max="256" style="width:80px" disabled>
+            </div>
+            <div>
+              <label>Cor</label><br>
+              <input type="color" id="genTextColor" value="#f2efe8" disabled style="width:48px;height:36px;border:none;background:transparent">
+            </div>
+            <label style="color:var(--text)"><input type="checkbox" id="genTextPixel" checked> Fonte pixel</label>
+            <button type="button" id="genTextAdd" disabled>Adicionar texto</button>
+          </div>
+          <p class="status-msg" id="genTextStatus"></p>
+        </div>
+      </section>
+
+      <section id="epanel-history" class="panel">
+        <div class="card">
+          <h2>Histórico</h2>
+          <p class="hint">Até 20 estados. Toque num item para voltar a ele (estados posteriores são descartados).</p>
+          <div class="row">
+            <button type="button" id="genUndo2" class="secondary" disabled>Desfazer</button>
+            <button type="button" id="genClearHistory" class="danger" disabled>Limpar histórico</button>
+          </div>
+          <div id="genHistoryList" class="layer-list" style="margin-top:10px"></div>
+          <p class="status-msg" id="genHistoryStatus"></p>
         </div>
       </section>
 
