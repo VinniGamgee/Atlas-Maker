@@ -10,10 +10,32 @@
   <script src="cordova.js" onerror="console.log('sem cordova')"></script>
 </head>
 <body>
+  <div id="splash" class="splash" aria-hidden="true">
+    <div class="splash-inner">
+      <div class="splash-logo" aria-hidden="true">
+        <svg width="56" height="56" viewBox="0 0 56 56" fill="none">
+          <rect x="4" y="4" width="48" height="48" rx="14" fill="#f43f5e" fill-opacity="0.15"/>
+          <rect x="12" y="10" width="28" height="36" rx="4" stroke="#f43f5e" stroke-width="2.5"/>
+          <path d="M20 22h12M20 28h12M20 34h8" stroke="#fafafa" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="splash-title">Atlas <span>Maker</span></div>
+      <div class="splash-sub">Moonait</div>
+    </div>
+  </div>
+  <div id="toast" class="toast" hidden></div>
   <header>
     <div class="header-top">
       <div class="header-title-block">
-        <p class="header-brand">Atlas Maker</p>
+        <div class="header-logo-row">
+          <span class="header-icon" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 56 56" fill="none">
+              <rect x="12" y="10" width="28" height="36" rx="4" stroke="currentColor" stroke-width="3"/>
+              <path d="M20 22h12M20 28h12M20 34h8" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+            </svg>
+          </span>
+          <p class="header-brand">Atlas Maker</p>
+        </div>
         <h1 id="pageTitle">Canvas</h1>
       </div>
       <div class="mode-switch" role="tablist" aria-label="Modo">
@@ -462,7 +484,7 @@
       </div>
     </section>
     </div>
-    <p class="app-footer">Atlas Maker · <strong>Moonait</strong></p>
+    <p class="app-footer"><span class="footer-dot"></span> Atlas Maker · <strong>Moonait</strong></p>
   </main>
 
   <script src="js/script.js"></script>

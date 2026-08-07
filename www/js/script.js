@@ -2667,4 +2667,50 @@
       log(parts.join(' | '));
     }, 600);
   });
+
+  // ========== VISUAL ONLY: splash + toast (não altera lógica) ==========
+  (function () {
+    var splash = document.getElementById('splash');
+    if (splash) {
+      setTimeout(function () {
+        splash.classList.add('is-hide');
+        setTimeout(function () {
+          try { splash.remove(); } catch (e) { splash.style.display = 'none'; }
+        }, 400);
+      }, 900);
+    }
+
+    var toastEl = document.getElementById('toast');
+    var toastTimer = null;
+    window.__atlasToast = function (msg, kind) {
+      if (!toastEl || !msg) return;
+      toastEl.textContent = msg;
+      toastEl.className = 'toast is-show' + (kind ? ' ' + kind : '');
+      toastEl.hidden = false;
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(function () {
+        toastEl.classList.remove('is-show');
+      }, 2200);
+    };
+
+    // realça .status-msg quando o texto muda (feedback leve)
+    function watchStatus(id) {
+      var el = document.getElementById(id);
+      if (!el || typeof MutationObserver === 'undefined') return;
+      var last = el.textContent;
+      var obs = new MutationObserver(function () {
+        var t = (el.textContent || '').trim();
+        if (!t || t === last) return;
+        last = t;
+        el.classList.remove('is-ok', 'is-err', 'is-busy');
+        var low = t.toLowerCase();
+        if (/erro|falha|não|nao|invalid/.test(low)) el.classList.add('is-err');
+        else if (/ok|salvo|gerado|limpo|enviado|pronto|meta|compr/.test(low)) el.classList.add('is-ok');
+        else if (/process|salv|gerand|magic|carreg/.test(low)) el.classList.add('is-busy');
+      });
+      obs.observe(el, { childList: true, characterData: true, subtree: true });
+    }
+    ['atlasStatus', 'genStatus', 'genExportStatus', 'removerStatus', 'genCropStatus', 'genLayerStatus', 'genTransformStatus', 'genDrawStatus', 'genTextStatus', 'genHistoryStatus'].forEach(watchStatus);
+  })();
+
 })();
