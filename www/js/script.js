@@ -2535,15 +2535,25 @@
 
     function switchMode(mode) {
       var isEditor = mode === 'editor';
-      document.getElementById('mode-editor').hidden = !isEditor;
-      document.getElementById('mode-editor').classList.toggle('active', isEditor);
-      document.getElementById('mode-balatro').hidden = isEditor;
-      document.getElementById('mode-balatro').classList.toggle('active', !isEditor);
-      document.getElementById('editorTabs').hidden = !isEditor;
-      document.getElementById('balatroTabs').hidden = isEditor;
+      var ed = document.getElementById('mode-editor');
+      var ba = document.getElementById('mode-balatro');
+      var et = document.getElementById('editorTabs');
+      var bt = document.getElementById('balatroTabs');
+
+      if (isEditor) {
+        ed.hidden = false; ed.removeAttribute('hidden'); ed.classList.add('active');
+        ba.hidden = true; ba.setAttribute('hidden', ''); ba.classList.remove('active');
+        et.hidden = false; et.removeAttribute('hidden');
+        bt.hidden = true; bt.setAttribute('hidden', '');
+      } else {
+        ba.hidden = false; ba.removeAttribute('hidden'); ba.classList.add('active');
+        ed.hidden = true; ed.setAttribute('hidden', ''); ed.classList.remove('active');
+        bt.hidden = false; bt.removeAttribute('hidden');
+        et.hidden = true; et.setAttribute('hidden', '');
+      }
       document.getElementById('modeEditor').classList.toggle('active', isEditor);
       document.getElementById('modeBalatro').classList.toggle('active', !isEditor);
-      document.getElementById('appTitle').textContent = isEditor ? 'Pixel Studio' : 'Balatro Atlas';
+      document.body.setAttribute('data-mode', isEditor ? 'editor' : 'balatro');
     }
 
     document.getElementById('modeEditor').onclick = function () { switchMode('editor'); };
