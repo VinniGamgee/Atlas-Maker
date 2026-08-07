@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Atlas Maker</title>
+
+<link rel="stylesheet" href="style.css">
+
+</head>
+
+
+<body>
+
+
+<header>
+
+<div>
+<h1>✦ Atlas Maker</h1>
+<span>Balatro Custom Tools</span>
+</div>
+
+<div>
+<button>⚙ Config</button>
+</div>
+
+</header>
+
+
+
+<main>
+
+
+<section class="panel">
+
+
+<h2>🛠 Ferramentas</h2>
+
+
+<button id="addImages">
+📁 Adicionar PNG
+</button>
+
+
+<input 
+type="file" 
+id="files"
+multiple 
+accept="image/png"
+hidden
+>
+
+
+
+<h3>Resolução</h3>
+
+<div>
+
+<button onclick="setSize(71,95)">
+71x95
+</button>
+
+
+<button onclick="setSize(142,190)">
+142x190
+</button>
+
+</div>
+
+
+
+<h3>Colunas</h3>
+
+<input 
+id="columns"
+type="number"
+value="10"
+>
+
+
+
+<h3>Imagens</h3>
+
+<div id="images"></div>
+
+
+
+</section>
+
+
+
+
+
+<section class="panel editor">
+
+
+<h2>🎨 Preview</h2>
+
+
+<canvas id="canvas"></canvas>
+
+
+</section>
+
+
+
+
+
+<section class="panel">
+
+
+<h2>📜 Lua</h2>
+
+
+<pre id="lua">
+Aguardando atlas...
+</pre>
+
+
+<button>
+📋 Copiar Lua
+</button>
+
+
+<button>
+⬇ Exportar PNG
+</button>
+
+
+
+</section>
+
+
+
+</main>
+
+
+
+<script src="script.js"></script>
+<script src="image.js"></script>
+<script src="atlas.js"></script>
+<script src="lua.js"></script>
+<script src="script.js"></script>
+
+</body>
+
+</html>

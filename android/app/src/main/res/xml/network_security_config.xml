@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- Permite HTTPS e, se necessário, HTTP para CDNs da IA -->
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">cdn.jsdelivr.net</domain>
+        <domain includeSubdomains="true">staticimgly.com</domain>
+        <domain includeSubdomains="true">img.ly</domain>
+    </domain-config>
+</network-security-config>
