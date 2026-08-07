@@ -34,8 +34,12 @@
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
-html, body {
+html {
   height: 100%;
+  height: 100dvh;
+  max-height: 100dvh;
+}
+html, body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--font);
@@ -47,10 +51,29 @@ html, body {
 }
 
 body {
-  padding-top: max(8px, env(safe-area-inset-top, 0px));
+  height: 100%;
+  height: 100dvh;
+  max-height: 100dvh;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding-top: env(safe-area-inset-top, 0px);
   padding-bottom: env(safe-area-inset-bottom, 0px);
   padding-left: env(safe-area-inset-left, 0px);
   padding-right: env(safe-area-inset-right, 0px);
+}
+
+/* Balatro pode rolar se o conteúdo for longo */
+body[data-mode="balatro"] {
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+body[data-mode="balatro"] main {
+  flex: none;
+  overflow: visible;
+  height: auto;
+  max-height: none;
 }
 
 /* ========== SPLASH ========== */
@@ -128,50 +151,50 @@ body {
 
 /* ========== HEADER ========== */
 header {
-  position: sticky;
-  top: 0;
+  position: relative;
   z-index: 100;
-  background: rgba(12, 12, 15, 0.92);
+  flex-shrink: 0;
+  background: rgba(12, 12, 15, 0.96);
   backdrop-filter: blur(20px) saturate(1.2);
   -webkit-backdrop-filter: blur(20px) saturate(1.2);
   border-bottom: 1px solid var(--border-subtle);
-  padding: env(safe-area-inset-top, 0px) 14px 0;
+  padding: 6px 12px 0;
 }
 
 .header-brand-bar {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 10px 0 4px;
+  gap: 7px;
+  padding: 4px 0 2px;
+  flex-shrink: 0;
 }
 .header-brand-bar .header-icon {
   color: var(--accent);
   display: inline-flex;
+  line-height: 0;
 }
 .header-brand-name {
-  font-size: 1.05rem;
+  font-size: 1.12rem;
   font-weight: 800;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.025em;
   color: var(--text);
-}
-.header-brand-name::after {
-  content: none;
 }
 
 .header-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 8px;
+  gap: 10px;
+  margin-bottom: 4px;
+  flex-shrink: 0;
 }
 .page-title {
-  font-size: 1.15rem !important;
-  font-weight: 800;
-  letter-spacing: -0.03em;
+  font-size: 0.95rem !important;
+  font-weight: 700;
+  letter-spacing: -0.02em;
   margin: 0;
-  color: var(--text);
+  color: var(--text-secondary);
 }
 
 .header-title-block { min-width: 0; flex: 1; }
@@ -242,14 +265,13 @@ header {
 /* Tabs */
 .tabs {
   display: flex;
-  gap: 6px;
+  gap: 5px;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
-  padding-bottom: 8px;
-  margin: 0 -2px;
-  padding-left: 2px;
-  padding-right: 2px;
+  padding-bottom: 6px;
+  margin: 0;
+  flex-shrink: 0;
 }
 .tabs::-webkit-scrollbar { display: none; }
 
@@ -299,9 +321,15 @@ header .tabs button.tab-btn:disabled {
 
 /* ========== MAIN ========== */
 main {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
   max-width: 960px;
   margin: 0 auto;
-  padding: 18px 14px 48px;
+  padding: 6px 10px 8px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .app-mode.active { display: block; }
@@ -898,21 +926,7 @@ button.danger:disabled { opacity: 0.38; }
 .panel-stage {
   margin: 0;
 }
-.stage-card {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 8px;
-  box-shadow: var(--shadow-sm);
-  /* cabe na viewport sem scroll */
-  height: calc(100dvh - 148px);
-  max-height: calc(100dvh - 148px);
-  min-height: 0;
-  overflow: hidden;
-}
+/* stage-card height controlled by viewport lock */
 
 .stage-top {
   flex-shrink: 0;
@@ -1051,4 +1065,148 @@ body[data-mode="editor"] .app-footer {
 .stage-toolbar .toolbar-scroll > button {
   height: 34px;
   padding: 0 10px;
+}
+
+
+/* =========================================================
+   VIEWPORT LOCK — Studio (editor) cabe 100% sem scroll de página
+   ========================================================= */
+body[data-mode="editor"] {
+  overflow: hidden !important;
+  height: 100dvh !important;
+  max-height: 100dvh !important;
+}
+
+body[data-mode="editor"] main {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+  padding: 6px 10px 6px !important;
+}
+
+body[data-mode="editor"] #mode-editor {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  height: 100% !important;
+  overflow: hidden !important;
+}
+
+body[data-mode="editor"] #mode-editor .panel {
+  display: none;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  flex-direction: column;
+  margin: 0;
+  animation: none;
+}
+
+body[data-mode="editor"] #mode-editor .panel.active {
+  display: flex !important;
+}
+
+/* Canvas stage: preenche o resto */
+body[data-mode="editor"] .panel-stage .stage-card {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  height: auto !important;
+  max-height: none !important;
+  overflow: hidden !important;
+  gap: 6px !important;
+  padding: 8px !important;
+  margin: 0 !important;
+}
+
+body[data-mode="editor"] .stage-top {
+  flex: 0 0 auto !important;
+}
+
+body[data-mode="editor"] .dropzone-compact {
+  padding: 7px 12px !important;
+}
+
+body[data-mode="editor"] .dropzone-compact p {
+  font-size: 0.78rem !important;
+}
+
+body[data-mode="editor"] .stage-viewport,
+body[data-mode="editor"] .gen-workspace.stage-viewport {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+}
+
+body[data-mode="editor"] .stage-viewport .gen-viewport,
+body[data-mode="editor"] #genViewport {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  height: 100% !important;
+  max-height: none !important;
+}
+
+body[data-mode="editor"] .stage-toolbar {
+  flex: 0 0 auto !important;
+  padding-top: 6px !important;
+  margin: 0 !important;
+}
+
+body[data-mode="editor"] .stage-toolbar .toolbar-scroll > button {
+  height: 32px !important;
+  padding: 0 10px !important;
+  font-size: 0.75rem !important;
+}
+
+body[data-mode="editor"] .status-compact {
+  flex: 0 0 auto !important;
+  margin: 0 !important;
+  padding: 2px 0 0 !important;
+  font-size: 0.68rem !important;
+  border: none !important;
+}
+
+/* Tools panels (crop/draw/text): compactos, sem forçar altura da página */
+body[data-mode="editor"] .panel-tools {
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+}
+
+body[data-mode="editor"] .panel-tools .tools-card {
+  margin: 0;
+}
+
+body[data-mode="editor"] .app-footer {
+  display: none !important;
+}
+
+/* Cards genéricos no studio (transform/layers/etc) — scroll interno se precisar */
+body[data-mode="editor"] #mode-editor .panel:not(.panel-stage):not(.panel-tools) {
+  overflow-y: auto !important;
+}
+
+body[data-mode="editor"] #mode-editor .panel:not(.panel-stage) .card {
+  margin-bottom: 0;
+}
+
+/* Header ainda mais compacto no editor */
+body[data-mode="editor"] .header-brand-bar {
+  padding: 2px 0 0 !important;
+}
+body[data-mode="editor"] .header-brand-name {
+  font-size: 1.08rem !important;
+}
+body[data-mode="editor"] .mode-btn {
+  padding: 6px 12px !important;
+  font-size: 0.74rem !important;
+}
+body[data-mode="editor"] header .tabs button.tab-btn {
+  min-height: 30px !important;
+  padding: 5px 11px !important;
+  font-size: 0.74rem !important;
 }
