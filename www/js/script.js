@@ -38,6 +38,9 @@
       var panel = document.getElementById('panel-' + tab);
       if (panel) panel.classList.add('active');
       if (tab === 'gallery') renderGallery();
+      var titles = { atlas: 'Atlas', remover: 'Removedor', preview: 'Prévia', editor: 'Moldura', gallery: 'Galeria' };
+      var pt = document.getElementById('pageTitle');
+      if (pt) pt.textContent = titles[tab] || tab;
     });
   });
 
@@ -1820,7 +1823,11 @@
         img.onload = function () {
           pushGenUndo();
           addLayerFromImage(img, file.name || 'Camada');
-          genLayerStatus('Camada adicionada: ' + (file.name || ''));
+          genLayerStatus('Camada adicionada: ' + (file.name || '') + ' · arraste para posicionar');
+          layerMoveMode = true;
+          genViewport.classList.add('layer-move-mode');
+          var bm2 = document.getElementById('genLayerMove');
+          if (bm2) bm2.textContent = 'Mover: ON';
           fitScale();
         };
         img.src = ev.target.result;
@@ -1859,8 +1866,42 @@
               sc.value = Math.round(L.scale * 100);
               document.getElementById('genLayerScaleVal').textContent = sc.value;
             }
-            genLayerStatus('Selecionada: ' + L.name);
+            layerMoveMode = true;
+            brushMode = null;
+            cropMode = false;
+            genViewport.classList.add('layer-move-mode');
+            var bm = document.getElementById('genLayerMove');
+            if (bm) bm.textContent = 'Mover: ON';
+            genLayerStatus('Selecionada: ' + L.name + ' · arraste no canvas para mover');
           };
+          // drag reorder
+          div.draggable = true;
+          div.addEventListener('dragstart', function (ev) {
+            ev.dataTransfer.setData('text/plain', String(idx));
+            div.classList.add('dragging');
+          });
+          div.addEventListener('dragend', function () { div.classList.remove('dragging'); });
+          div.addEventListener('dragover', function (ev) {
+            ev.preventDefault();
+            div.classList.add('drag-over');
+          });
+          div.addEventListener('dragleave', function () { div.classList.remove('drag-over'); });
+          div.addEventListener('drop', function (ev) {
+            ev.preventDefault();
+            div.classList.remove('drag-over');
+            var from = parseInt(ev.dataTransfer.getData('text/plain'), 10);
+            var to = idx;
+            if (isNaN(from) || from === to) return;
+            pushGenUndo('Reordenar camadas');
+            var item = layers.splice(from, 1)[0];
+            layers.splice(to, 0, item);
+            activeLayer = to;
+            compositeToWork();
+            applyWorkToView();
+            renderLayerList();
+            updateLayerButtons();
+            genLayerStatus('Camadas reordenadas');
+          });
           list.appendChild(div);
         })(i);
       }
@@ -2409,7 +2450,14 @@
       applyWorkToView();
       renderLayerList();
       updateLayerButtons();
-      document.getElementById('genTextStatus').textContent = 'Camada de texto criada · mova em Colagem';
+      document.getElementById('genTextStatus').textContent = 'Texto criado · arraste no canvas para posicionar';
+      // ativa mover automaticamente
+      layerMoveMode = true;
+      genViewport.classList.add('layer-move-mode');
+      var bm = document.getElementById('genLayerMove');
+      if (bm) bm.textContent = 'Mover: ON';
+      document.querySelector('[data-etab="canvas"]').click();
+      genStatus('Arraste o texto no canvas · pinça ainda faz zoom');
     };
 
     // --- history UI ---
@@ -2523,13 +2571,30 @@
       genStatus('Recebido do Removedor: ' + c.width + '×' + c.height);
     };
 
+    var ETAB_TITLES = {
+      canvas: 'Canvas', crop: 'Cortar', draw: 'Pincel', text: 'Texto',
+      transform: 'Transformar', layers: 'Colagem', history: 'Histórico',
+      bg: 'Fundo', export: 'Exportar'
+    };
+    var BTAB_TITLES = {
+      atlas: 'Atlas', remover: 'Removedor', preview: 'Prévia',
+      editor: 'Moldura', gallery: 'Galeria'
+    };
+
+    function setPageTitle(text) {
+      var el = document.getElementById('pageTitle');
+      if (el) el.textContent = text || 'Atlas Maker';
+    }
+
     document.querySelectorAll('[data-etab]').forEach(function (btn) {
       btn.addEventListener('click', function () {
         document.querySelectorAll('#editorTabs .tab-btn').forEach(function (b) { b.classList.remove('active'); });
         document.querySelectorAll('#mode-editor .panel').forEach(function (p) { p.classList.remove('active'); });
         btn.classList.add('active');
-        var panel = document.getElementById('epanel-' + btn.getAttribute('data-etab'));
+        var key = btn.getAttribute('data-etab');
+        var panel = document.getElementById('epanel-' + key);
         if (panel) panel.classList.add('active');
+        setPageTitle(ETAB_TITLES[key] || key);
       });
     });
 
@@ -2554,12 +2619,25 @@
       document.getElementById('modeEditor').classList.toggle('active', isEditor);
       document.getElementById('modeBalatro').classList.toggle('active', !isEditor);
       document.body.setAttribute('data-mode', isEditor ? 'editor' : 'balatro');
+      if (isEditor) {
+        var activeE = document.querySelector('#editorTabs .tab-btn.active');
+        var ek = activeE ? activeE.getAttribute('data-etab') : 'canvas';
+        var etMap = { canvas: 'Canvas', crop: 'Cortar', draw: 'Pincel', text: 'Texto', transform: 'Transformar', layers: 'Colagem', history: 'Histórico', bg: 'Fundo', export: 'Exportar' };
+        setPageTitle(etMap[ek] || 'Canvas');
+      } else {
+        var activeB = document.querySelector('#balatroTabs .tab-btn.active');
+        var bk = activeB ? activeB.getAttribute('data-tab') : 'atlas';
+        var btMap = { atlas: 'Atlas', remover: 'Removedor', preview: 'Prévia', editor: 'Moldura', gallery: 'Galeria' };
+        var pt = document.getElementById('pageTitle');
+        if (pt) pt.textContent = btMap[bk] || 'Atlas';
+      }
     }
 
     document.getElementById('modeEditor').onclick = function () { switchMode('editor'); };
     document.getElementById('modeBalatro').onclick = function () { switchMode('balatro'); };
 
     switchMode('editor');
+    setPageTitle('Canvas');
   })();
 
   // Diagnóstico Capacitor

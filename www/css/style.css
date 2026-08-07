@@ -56,6 +56,28 @@ header {
   padding-top: calc(28px + env(safe-area-inset-top, 0px));
 }
 
+.header-title-block {
+  min-width: 0;
+  flex: 1;
+}
+.header-brand {
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin: 0 0 2px;
+}
+.header-title-block h1 {
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--text);
+  line-height: 1.15;
+  margin: 0;
+}
+.header-title-block h1 .accent { color: var(--accent); }
+
 .header-top {
   display: flex;
   align-items: center;
@@ -668,3 +690,11 @@ button.danger:hover:not(:disabled) {
 }
 
 .app-footer strong { color: var(--text-secondary); font-weight: 600; }
+
+.layer-item.dragging {
+  opacity: 0.5;
+  border-color: var(--accent);
+}
+.layer-item.drag-over {
+  border-top: 2px solid var(--accent);
+}

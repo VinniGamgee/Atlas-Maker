@@ -12,7 +12,10 @@
 <body>
   <header>
     <div class="header-top">
-      <h1><span class="brand">Atlas</span> Maker</h1>
+      <div class="header-title-block">
+        <p class="header-brand">Atlas Maker</p>
+        <h1 id="pageTitle">Canvas</h1>
+      </div>
       <div class="mode-switch" role="tablist" aria-label="Modo">
         <button type="button" class="mode-btn active" data-mode="editor" id="modeEditor">Studio</button>
         <button type="button" class="mode-btn" data-mode="balatro" id="modeBalatro">Balatro</button>
@@ -111,7 +114,7 @@
       <section id="epanel-layers" class="panel">
         <div class="card">
           <h2>Colagem · Camadas</h2>
-          <p class="hint">Adicione imagens como camadas. Com <strong>Mover camada</strong> ativo, arraste no canvas para posicionar a camada selecionada (pan do viewport fica desligado).</p>
+          <p class="hint">Adicione imagens/texto como camadas. <strong>Toque numa camada</strong> e arraste no canvas para mover. Segure e arraste na lista para reordenar. Botão “Mover” força o modo mover.</p>
           <div class="row">
             <div class="dropzone" id="layerDrop" style="flex:1;padding:12px">
               <p style="font-size:0.85rem">+ Adicionar camada (imagem)</p>
