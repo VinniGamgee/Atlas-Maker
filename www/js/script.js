@@ -28,13 +28,16 @@
   }
 
   // ========== TABS ==========
-  document.querySelectorAll('.tab-btn').forEach(function (btn) {
+    document.querySelectorAll('#balatroTabs .tab-btn, #mode-balatro .tab-btn').forEach(function (btn) {
     btn.addEventListener('click', function () {
-      document.querySelectorAll('.tab-btn').forEach(function (b) { b.classList.remove('active'); });
-      document.querySelectorAll('.panel').forEach(function (p) { p.classList.remove('active'); });
+      var tab = btn.getAttribute('data-tab');
+      if (!tab) return;
+      document.querySelectorAll('#balatroTabs .tab-btn').forEach(function (b) { b.classList.remove('active'); });
+      document.querySelectorAll('#mode-balatro .panel').forEach(function (p) { p.classList.remove('active'); });
       btn.classList.add('active');
-      document.getElementById('panel-' + btn.getAttribute('data-tab')).classList.add('active');
-      if (btn.getAttribute('data-tab') === 'gallery') renderGallery();
+      var panel = document.getElementById('panel-' + tab);
+      if (panel) panel.classList.add('active');
+      if (tab === 'gallery') renderGallery();
     });
   });
 
@@ -1503,6 +1506,425 @@
   renderFrameGrid();
   if (BUILTIN_FRAMES[0]) selectFrame(BUILTIN_FRAMES[0]);
 
+
+
+  // ========== MODE SWITCH + GENERAL EDITOR (principal) ==========
+  (function () {
+    var genImage = null;      // HTMLImageElement source original session
+    var genCanvas = document.getElementById('genCanvas');
+    var genViewport = document.getElementById('genViewport');
+    if (!genCanvas || !genViewport) return;
+
+    var gctx = genCanvas.getContext('2d');
+    var workCanvas = document.createElement('canvas');
+    var workCtx = workCanvas.getContext('2d', { willReadFrequently: true });
+
+    var scale = 1;
+    var panX = 0, panY = 0;
+    var genUndoStack = [];
+    var MAX_GEN_UNDO = 12;
+
+    var cropMode = false;
+    var cropStart = null;
+    var cropBox = null; // {x,y,w,h} in image pixels
+    var cropEl = document.createElement('div');
+    cropEl.className = 'crop-rect';
+    genViewport.appendChild(cropEl);
+
+    function genStatus(msg) {
+      var el = document.getElementById('genStatus');
+      if (el) el.textContent = msg || '';
+    }
+    function genCropStatus(msg) {
+      var el = document.getElementById('genCropStatus');
+      if (el) el.textContent = msg || '';
+    }
+    function genExportStatus(msg) {
+      var el = document.getElementById('genExportStatus');
+      if (el) el.textContent = msg || '';
+    }
+
+    function setGenEnabled(on) {
+      ['genZoomOut','genZoomIn','genZoomFit','genZoom1','genUndo','genReset',
+       'genCropStart','genExport','genToAtlas','genToRemover'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) el.disabled = !on;
+      });
+      document.getElementById('genUndo').disabled = !on || genUndoStack.length === 0;
+    }
+
+    function pushGenUndo() {
+      try {
+        genUndoStack.push(workCtx.getImageData(0, 0, workCanvas.width, workCanvas.height));
+        if (genUndoStack.length > MAX_GEN_UNDO) genUndoStack.shift();
+        document.getElementById('genUndo').disabled = false;
+      } catch (e) {}
+    }
+
+    function applyWorkToView() {
+      genCanvas.width = workCanvas.width;
+      genCanvas.height = workCanvas.height;
+      gctx.imageSmoothingEnabled = false;
+      gctx.clearRect(0, 0, genCanvas.width, genCanvas.height);
+      gctx.drawImage(workCanvas, 0, 0);
+      layoutCanvas();
+    }
+
+    function layoutCanvas() {
+      genCanvas.style.transform = 'translate(' + panX + 'px,' + panY + 'px) scale(' + scale + ')';
+      updateCropEl();
+    }
+
+    function fitScale() {
+      if (!workCanvas.width) return;
+      var vw = genViewport.clientWidth;
+      var vh = genViewport.clientHeight;
+      scale = Math.min(vw / workCanvas.width, vh / workCanvas.height, 8);
+      panX = (vw - workCanvas.width * scale) / 2;
+      panY = (vh - workCanvas.height * scale) / 2;
+      layoutCanvas();
+    }
+
+    function loadGenFile(file) {
+      var reader = new FileReader();
+      reader.onload = function (ev) {
+        var img = new Image();
+        img.onload = function () {
+          genImage = img;
+          workCanvas.width = img.width;
+          workCanvas.height = img.height;
+          workCtx.imageSmoothingEnabled = false;
+          workCtx.clearRect(0, 0, img.width, img.height);
+          workCtx.drawImage(img, 0, 0);
+          genUndoStack = [];
+          cropMode = false;
+          cropBox = null;
+          cropEl.style.display = 'none';
+          applyWorkToView();
+          fitScale();
+          setGenEnabled(true);
+          genStatus(img.width + '×' + img.height + ' · zoom e pan ativos');
+        };
+        img.src = ev.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    // drop
+    var genDrop = document.getElementById('genDrop');
+    var genInput = document.getElementById('genInput');
+    genDrop.addEventListener('click', function () { genInput.click(); });
+    genDrop.addEventListener('dragover', function (e) { e.preventDefault(); genDrop.classList.add('dragover'); });
+    genDrop.addEventListener('dragleave', function () { genDrop.classList.remove('dragover'); });
+    genDrop.addEventListener('drop', function (e) {
+      e.preventDefault();
+      genDrop.classList.remove('dragover');
+      if (e.dataTransfer.files[0]) loadGenFile(e.dataTransfer.files[0]);
+    });
+    genInput.addEventListener('change', function () {
+      if (genInput.files[0]) loadGenFile(genInput.files[0]);
+    });
+
+    // pan + pinch zoom
+    var pointers = new Map();
+    var lastPinchDist = 0;
+
+    genViewport.addEventListener('pointerdown', function (e) {
+      genViewport.setPointerCapture(e.pointerId);
+      pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (cropMode && pointers.size === 1) {
+        var rect = genViewport.getBoundingClientRect();
+        var ix = (e.clientX - rect.left - panX) / scale;
+        var iy = (e.clientY - rect.top - panY) / scale;
+        cropStart = { x: ix, y: iy };
+        cropBox = { x: ix, y: iy, w: 0, h: 0 };
+      }
+    });
+    genViewport.addEventListener('pointermove', function (e) {
+      if (!pointers.has(e.pointerId)) return;
+      var prev = pointers.get(e.pointerId);
+      var dx = e.clientX - prev.x;
+      var dy = e.clientY - prev.y;
+      pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+      if (cropMode && cropStart && pointers.size === 1) {
+        var rect = genViewport.getBoundingClientRect();
+        var ix = (e.clientX - rect.left - panX) / scale;
+        var iy = (e.clientY - rect.top - panY) / scale;
+        cropBox = {
+          x: Math.min(cropStart.x, ix),
+          y: Math.min(cropStart.y, iy),
+          w: Math.abs(ix - cropStart.x),
+          h: Math.abs(iy - cropStart.y)
+        };
+        updateCropEl();
+        return;
+      }
+
+      if (pointers.size === 1 && !cropMode) {
+        panX += dx;
+        panY += dy;
+        layoutCanvas();
+      } else if (pointers.size === 2) {
+        var pts = Array.from(pointers.values());
+        var dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+        if (lastPinchDist > 0) {
+          var factor = dist / lastPinchDist;
+          var rect = genViewport.getBoundingClientRect();
+          var cx = (pts[0].x + pts[1].x) / 2 - rect.left;
+          var cy = (pts[0].y + pts[1].y) / 2 - rect.top;
+          var wx = (cx - panX) / scale;
+          var wy = (cy - panY) / scale;
+          scale = Math.min(32, Math.max(0.05, scale * factor));
+          panX = cx - wx * scale;
+          panY = cy - wy * scale;
+          layoutCanvas();
+        }
+        lastPinchDist = dist;
+      }
+    });
+    function endPointer(e) {
+      pointers.delete(e.pointerId);
+      if (pointers.size < 2) lastPinchDist = 0;
+      if (cropMode && cropBox && cropBox.w > 2 && cropBox.h > 2) {
+        document.getElementById('genCropApply').disabled = false;
+        genCropStatus(
+          'Área: ' + Math.round(cropBox.w) + '×' + Math.round(cropBox.h) + ' px'
+        );
+      }
+    }
+    genViewport.addEventListener('pointerup', endPointer);
+    genViewport.addEventListener('pointercancel', endPointer);
+
+    genViewport.addEventListener('wheel', function (e) {
+      e.preventDefault();
+      if (!workCanvas.width) return;
+      var rect = genViewport.getBoundingClientRect();
+      var cx = e.clientX - rect.left;
+      var cy = e.clientY - rect.top;
+      var wx = (cx - panX) / scale;
+      var wy = (cy - panY) / scale;
+      var factor = e.deltaY < 0 ? 1.12 : 1 / 1.12;
+      scale = Math.min(32, Math.max(0.05, scale * factor));
+      panX = cx - wx * scale;
+      panY = cy - wy * scale;
+      layoutCanvas();
+    }, { passive: false });
+
+    function updateCropEl() {
+      if (!cropBox || !cropMode) {
+        cropEl.style.display = 'none';
+        return;
+      }
+      cropEl.style.display = 'block';
+      cropEl.style.left = (panX + cropBox.x * scale) + 'px';
+      cropEl.style.top = (panY + cropBox.y * scale) + 'px';
+      cropEl.style.width = (cropBox.w * scale) + 'px';
+      cropEl.style.height = (cropBox.h * scale) + 'px';
+    }
+
+    document.getElementById('genZoomIn').onclick = function () {
+      scale = Math.min(32, scale * 1.25);
+      layoutCanvas();
+    };
+    document.getElementById('genZoomOut').onclick = function () {
+      scale = Math.max(0.05, scale / 1.25);
+      layoutCanvas();
+    };
+    document.getElementById('genZoomFit').onclick = fitScale;
+    document.getElementById('genZoom1').onclick = function () {
+      scale = 1;
+      panX = (genViewport.clientWidth - workCanvas.width) / 2;
+      panY = (genViewport.clientHeight - workCanvas.height) / 2;
+      layoutCanvas();
+    };
+
+    document.getElementById('genUndo').onclick = function () {
+      if (!genUndoStack.length) return;
+      var data = genUndoStack.pop();
+      workCanvas.width = data.width;
+      workCanvas.height = data.height;
+      workCtx.putImageData(data, 0, 0);
+      applyWorkToView();
+      document.getElementById('genUndo').disabled = genUndoStack.length === 0;
+      genStatus('Desfeito.');
+    };
+
+    document.getElementById('genReset').onclick = function () {
+      if (!genImage) return;
+      pushGenUndo();
+      workCanvas.width = genImage.width;
+      workCanvas.height = genImage.height;
+      workCtx.drawImage(genImage, 0, 0);
+      applyWorkToView();
+      fitScale();
+      genStatus('Resetado à imagem original da sessão.');
+    };
+
+    document.getElementById('genCropStart').onclick = function () {
+      if (!workCanvas.width) return;
+      cropMode = true;
+      cropBox = null;
+      cropStart = null;
+      cropEl.style.display = 'none';
+      document.getElementById('genCropApply').disabled = true;
+      document.getElementById('genCropCancel').disabled = false;
+      genCropStatus('Arraste no canvas para marcar o retângulo.');
+      // go to canvas tab visually
+      document.querySelector('[data-etab="canvas"]').click();
+    };
+    document.getElementById('genCropCancel').onclick = function () {
+      cropMode = false;
+      cropBox = null;
+      cropEl.style.display = 'none';
+      document.getElementById('genCropApply').disabled = true;
+      document.getElementById('genCropCancel').disabled = true;
+      genCropStatus('Corte cancelado.');
+    };
+    document.getElementById('genCropApply').onclick = function () {
+      if (!cropBox || cropBox.w < 1 || cropBox.h < 1) return;
+      pushGenUndo();
+      var x = Math.max(0, Math.floor(cropBox.x));
+      var y = Math.max(0, Math.floor(cropBox.y));
+      var w = Math.min(workCanvas.width - x, Math.ceil(cropBox.w));
+      var h = Math.min(workCanvas.height - y, Math.ceil(cropBox.h));
+      if (w < 1 || h < 1) return;
+      var data = workCtx.getImageData(x, y, w, h);
+      workCanvas.width = w;
+      workCanvas.height = h;
+      workCtx.putImageData(data, 0, 0);
+      cropMode = false;
+      cropBox = null;
+      cropEl.style.display = 'none';
+      document.getElementById('genCropApply').disabled = true;
+      document.getElementById('genCropCancel').disabled = true;
+      applyWorkToView();
+      fitScale();
+      genCropStatus('Cortado para ' + w + '×' + h);
+      genStatus('Canvas: ' + w + '×' + h);
+    };
+
+    document.getElementById('genExport').onclick = function () {
+      if (!workCanvas.width) return;
+      workCanvas.toBlob(function (blob) {
+        if (blob) {
+          saveBlob(blob, 'pixel-studio-' + workCanvas.width + 'x' + workCanvas.height + '.png');
+          genExportStatus('Exportando ' + workCanvas.width + '×' + workCanvas.height);
+        }
+      }, 'image/png');
+    };
+
+    document.getElementById('genToAtlas').onclick = function () {
+      if (!workCanvas.width) return;
+      workCanvas.toBlob(function (blob) {
+        var reader = new FileReader();
+        reader.onload = function (ev) {
+          var img = new Image();
+          img.onload = function () {
+            images.push({
+              id: Date.now(),
+              name: 'from-editor.png',
+              img: img,
+              dataUrl: ev.target.result
+            });
+            renderThumbs();
+            updateAtlasButtons();
+            switchMode('balatro');
+            document.querySelector('#balatroTabs [data-tab="atlas"]').click();
+            genExportStatus('Enviado para o Atlas Balatro.');
+          };
+          img.src = ev.target.result;
+        };
+        reader.readAsDataURL(blob);
+      }, 'image/png');
+    };
+
+    document.getElementById('genToRemover').onclick = function () {
+      if (!workCanvas.width) return;
+      workCanvas.toBlob(function (blob) {
+        var reader = new FileReader();
+        reader.onload = function (ev) {
+          lastRemoverDataUrl = ev.target.result;
+          var img = new Image();
+          img.onload = function () {
+            fullW = img.width;
+            fullH = img.height;
+            undoStack = [];
+            fullCanvas = document.createElement('canvas');
+            fullCanvas.width = fullW;
+            fullCanvas.height = fullH;
+            fullCtx = fullCanvas.getContext('2d', { willReadFrequently: true });
+            fullCtx.drawImage(img, 0, 0);
+            var maxDisp = Math.min(520, window.innerWidth - 40);
+            var scaleR = Math.min(1, maxDisp / Math.max(fullW, fullH));
+            srcCanvas.width = Math.round(fullW * scaleR);
+            srcCanvas.height = Math.round(fullH * scaleR);
+            outCanvas.width = srcCanvas.width;
+            outCanvas.height = srcCanvas.height;
+            redrawSrc();
+            clearOut();
+            ['btnAI','btnMagic','btnSimple','btnResetRemover','btnDefringe','btnHardEdge','btnPadBalatro'].forEach(function (id) {
+              var el = document.getElementById(id);
+              if (el) el.disabled = false;
+            });
+            document.getElementById('genFromRemover').disabled = false;
+            switchMode('balatro');
+            document.querySelector('#balatroTabs [data-tab="remover"]').click();
+            setStatus('Imagem do Editor carregada no Removedor.');
+          };
+          img.src = ev.target.result;
+        };
+        reader.readAsDataURL(blob);
+      }, 'image/png');
+    };
+
+    document.getElementById('genFromRemover').onclick = function () {
+      if (!fullCanvas) {
+        genStatus('Nada no Removedor ainda.');
+        return;
+      }
+      pushGenUndo();
+      workCanvas.width = fullCanvas.width;
+      workCanvas.height = fullCanvas.height;
+      workCtx.clearRect(0, 0, workCanvas.width, workCanvas.height);
+      workCtx.drawImage(fullCanvas, 0, 0);
+      applyWorkToView();
+      fitScale();
+      setGenEnabled(true);
+      switchMode('editor');
+      genStatus('Recebido do Removedor: ' + workCanvas.width + '×' + workCanvas.height);
+    };
+
+    // editor sub-tabs
+    document.querySelectorAll('[data-etab]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        document.querySelectorAll('#editorTabs .tab-btn').forEach(function (b) { b.classList.remove('active'); });
+        document.querySelectorAll('#mode-editor .panel').forEach(function (p) { p.classList.remove('active'); });
+        btn.classList.add('active');
+        var panel = document.getElementById('epanel-' + btn.getAttribute('data-etab'));
+        if (panel) panel.classList.add('active');
+      });
+    });
+
+    function switchMode(mode) {
+      var isEditor = mode === 'editor';
+      document.getElementById('mode-editor').hidden = !isEditor;
+      document.getElementById('mode-editor').classList.toggle('active', isEditor);
+      document.getElementById('mode-balatro').hidden = isEditor;
+      document.getElementById('mode-balatro').classList.toggle('active', !isEditor);
+      document.getElementById('editorTabs').hidden = !isEditor;
+      document.getElementById('balatroTabs').hidden = isEditor;
+      document.getElementById('modeEditor').classList.toggle('active', isEditor);
+      document.getElementById('modeBalatro').classList.toggle('active', !isEditor);
+      document.getElementById('appTitle').textContent = isEditor ? 'Pixel Studio' : 'Balatro Atlas';
+    }
+
+    document.getElementById('modeEditor').onclick = function () { switchMode('editor'); };
+    document.getElementById('modeBalatro').onclick = function () { switchMode('balatro'); };
+
+    // default: editor principal
+    switchMode('editor');
+  })();
 
   // Diagnóstico Capacitor
   document.addEventListener('DOMContentLoaded', function () {

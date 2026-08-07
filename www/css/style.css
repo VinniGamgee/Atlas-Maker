@@ -577,3 +577,72 @@ footer {
   background: repeating-conic-gradient(#2a2a35 0% 25%, #1e1e26 0% 50%) 50% / 12px 12px;
   touch-action: none;
 }
+
+
+/* Mode switch + general editor */
+.header-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.mode-switch {
+  display: flex;
+  background: var(--bg3);
+  border-radius: 10px;
+  padding: 3px;
+  border: 1px solid var(--border);
+}
+.mode-btn {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+.mode-btn.active {
+  background: var(--accent);
+  color: #fff;
+}
+.app-mode[hidden] { display: none !important; }
+.app-mode.active { display: block; }
+
+.gen-workspace {
+  margin-top: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: #0a0a0e;
+}
+.gen-viewport {
+  position: relative;
+  width: 100%;
+  height: min(55vh, 420px);
+  overflow: hidden;
+  touch-action: none;
+  cursor: grab;
+  background:
+    repeating-conic-gradient(#2a2a35 0% 25%, #1e1e26 0% 50%) 50% / 16px 16px;
+}
+.gen-viewport:active { cursor: grabbing; }
+.gen-viewport canvas {
+  position: absolute;
+  left: 0;
+  top: 0;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  transform-origin: 0 0;
+}
+.crop-rect {
+  position: absolute;
+  border: 2px dashed var(--accent);
+  background: rgba(232, 93, 76, 0.12);
+  pointer-events: none;
+  display: none;
+  z-index: 2;
+}

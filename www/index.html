@@ -5,25 +5,104 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#0f0f12">
   <meta name="mobile-web-app-capable" content="yes">
-  <title>Balatro Atlas Generator</title>
+  <title>Pixel Studio · Atlas Balatro</title>
   <link rel="stylesheet" href="css/style.css">
-  <!-- Cordova: se existir no APK, carrega; senão ignora -->
   <script src="cordova.js" onerror="console.log('sem cordova')"></script>
 </head>
 <body>
   <header>
-    <h1>🃏 <span>Balatro</span> Atlas</h1>
-    <nav class="tabs">
+    <div class="header-top">
+      <h1>✂️ <span id="appTitle">Pixel Studio</span></h1>
+      <div class="mode-switch" role="tablist">
+        <button type="button" class="mode-btn active" data-mode="editor" id="modeEditor">Editor</button>
+        <button type="button" class="mode-btn" data-mode="balatro" id="modeBalatro">Balatro Atlas</button>
+      </div>
+    </div>
+    <nav class="tabs" id="balatroTabs" hidden>
       <button type="button" class="tab-btn active" data-tab="atlas">Atlas</button>
       <button type="button" class="tab-btn" data-tab="remover">Removedor</button>
       <button type="button" class="tab-btn" data-tab="preview">Prévia</button>
-      <button type="button" class="tab-btn" data-tab="editor">Editor</button>
+      <button type="button" class="tab-btn" data-tab="editor">Moldura</button>
       <button type="button" class="tab-btn" data-tab="gallery">Galeria</button>
+    </nav>
+    <nav class="tabs" id="editorTabs">
+      <button type="button" class="tab-btn active" data-etab="canvas">Canvas</button>
+      <button type="button" class="tab-btn" data-etab="crop">Cortar</button>
+      <button type="button" class="tab-btn" data-etab="bg">Fundo</button>
+      <button type="button" class="tab-btn" data-etab="export">Exportar</button>
     </nav>
   </header>
 
   <main>
-    <section id="panel-atlas" class="panel active">
+    <!-- ========== MODO EDITOR GERAL (principal) ========== -->
+    <div id="mode-editor" class="app-mode active">
+      <section id="epanel-canvas" class="panel active">
+        <div class="card">
+          <h2>Canvas</h2>
+          <p class="hint">Abra uma imagem. Arraste com 1 dedo para mover · pinça ou botões para zoom. Pixel art usa nearest-neighbor.</p>
+          <div class="row">
+            <div class="dropzone" id="genDrop" style="flex:1;padding:16px">
+              <p>Toque ou arraste uma imagem</p>
+              <input type="file" id="genInput" accept="image/*">
+            </div>
+          </div>
+          <div class="gen-workspace">
+            <div class="gen-viewport" id="genViewport">
+              <canvas id="genCanvas"></canvas>
+            </div>
+          </div>
+          <div class="row" style="margin-top:10px">
+            <button type="button" id="genZoomOut" class="secondary" disabled>− Zoom</button>
+            <button type="button" id="genZoomIn" class="secondary" disabled>+ Zoom</button>
+            <button type="button" id="genZoomFit" class="secondary" disabled>Cabem</button>
+            <button type="button" id="genZoom1" class="secondary" disabled>1:1</button>
+            <button type="button" id="genUndo" class="secondary" disabled>Desfazer</button>
+            <button type="button" id="genReset" class="secondary" disabled>Resetar</button>
+          </div>
+          <p class="status-msg" id="genStatus">Editor geral · modo principal do app</p>
+        </div>
+      </section>
+
+      <section id="epanel-crop" class="panel">
+        <div class="card">
+          <h2>Cortar</h2>
+          <p class="hint">Arraste no canvas para marcar a área · <strong>Aplicar corte</strong> confirma. Use zoom antes se precisar de precisão.</p>
+          <div class="row">
+            <button type="button" id="genCropStart" disabled>Marcar área</button>
+            <button type="button" id="genCropApply" class="success" disabled>Aplicar corte</button>
+            <button type="button" id="genCropCancel" class="secondary" disabled>Cancelar</button>
+          </div>
+          <p class="status-msg" id="genCropStatus"></p>
+        </div>
+      </section>
+
+      <section id="epanel-bg" class="panel">
+        <div class="card">
+          <h2>Remover fundo</h2>
+          <p class="hint">Usa as mesmas ferramentas profissionais do Atlas (Magic, Simple, Limpar franja). O resultado volta para o canvas do Editor.</p>
+          <div class="row">
+            <button type="button" id="genToRemover" disabled>Abrir no Removedor</button>
+            <button type="button" id="genFromRemover" class="secondary" disabled>Trazer do Removedor</button>
+          </div>
+          <p class="hint" style="margin-top:10px">Atalho: vá em <strong>Balatro Atlas → Removedor</strong>, processe, depois volte e use <strong>Trazer do Removedor</strong> — ou o fluxo automático pelo botão acima.</p>
+        </div>
+      </section>
+
+      <section id="epanel-export" class="panel">
+        <div class="card">
+          <h2>Exportar</h2>
+          <div class="row">
+            <button type="button" id="genExport" class="success" disabled>Salvar PNG</button>
+            <button type="button" id="genToAtlas" class="secondary" disabled>Enviar p/ Atlas Balatro</button>
+          </div>
+          <p class="status-msg" id="genExportStatus"></p>
+        </div>
+      </section>
+    </div>
+
+    <!-- ========== MODO BALATRO ATLAS (ferramenta) ========== -->
+    <div id="mode-balatro" class="app-mode" hidden>
+<section id="panel-atlas" class="panel active">
       <div class="card">
         <h2>Configurações do Atlas</h2>
         <div class="row">
@@ -260,13 +339,9 @@
         </div>
       </div>
     </section>
+    </div>
   </main>
 
-  <footer>
-    Balatro Atlas Generator · Offline-first · Não afiliado ao Balatro
-  </footer>
-
-  <!-- Script clássico (NÃO module) — funciona offline no WebView/APK -->
   <script src="js/script.js"></script>
 </body>
 </html>
