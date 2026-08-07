@@ -2589,7 +2589,7 @@
     document.querySelectorAll('[data-etab]').forEach(function (btn) {
       btn.addEventListener('click', function () {
         document.querySelectorAll('#editorTabs .tab-btn').forEach(function (b) { b.classList.remove('active'); });
-        document.querySelectorAll('#mode-editor .panel').forEach(function (p) { p.classList.remove('active'); });
+        document.querySelectorAll('#studioDock .panel').forEach(function (p) { p.classList.remove('active'); });
         btn.classList.add('active');
         var key = btn.getAttribute('data-etab');
         var panel = document.getElementById('epanel-' + key);
@@ -2608,13 +2608,14 @@
       if (isEditor) {
         ed.hidden = false; ed.removeAttribute('hidden'); ed.classList.add('active');
         ba.hidden = true; ba.setAttribute('hidden', ''); ba.classList.remove('active');
-        et.hidden = false; et.removeAttribute('hidden');
+        if (et) { et.hidden = false; et.removeAttribute('hidden'); }
         bt.hidden = true; bt.setAttribute('hidden', '');
       } else {
         ba.hidden = false; ba.removeAttribute('hidden'); ba.classList.add('active');
         ed.hidden = true; ed.setAttribute('hidden', ''); ed.classList.remove('active');
         bt.hidden = false; bt.removeAttribute('hidden');
-        et.hidden = true; et.setAttribute('hidden', '');
+        /* editorTabs vive dentro de #mode-editor — some junto com o modo */
+        if (et) { et.hidden = false; et.removeAttribute('hidden'); }
       }
       document.getElementById('modeEditor').classList.toggle('active', isEditor);
       document.getElementById('modeBalatro').classList.toggle('active', !isEditor);

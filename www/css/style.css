@@ -1210,3 +1210,156 @@ body[data-mode="editor"] header .tabs button.tab-btn {
   padding: 5px 11px !important;
   font-size: 0.74rem !important;
 }
+
+
+/* =========================================================
+   STUDIO: canvas em cima · UMA barra de abas embaixo · dock
+   ========================================================= */
+body[data-mode="editor"] #mode-editor {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  height: 100% !important;
+  overflow: hidden !important;
+  gap: 0;
+}
+
+/* Stage: ocupa o máximo do espaço restante */
+body[data-mode="editor"] #studioStage {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  padding: 0;
+}
+
+body[data-mode="editor"] #studioStage .stage-card {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  height: auto !important;
+  max-height: none !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  margin: 0 !important;
+  gap: 4px !important;
+  padding: 6px !important;
+}
+
+body[data-mode="editor"] #studioStage .stage-viewport,
+body[data-mode="editor"] #studioStage .gen-workspace {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+body[data-mode="editor"] #studioStage #genViewport {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  height: 100% !important;
+}
+
+/* Barra única inferior de abas */
+#editorTabs.tabs-bottom {
+  flex: 0 0 auto !important;
+  display: flex !important;
+  gap: 4px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding: 6px 4px 4px;
+  margin: 0;
+  border-top: 1px solid var(--border-subtle);
+  background: rgba(12, 12, 15, 0.96);
+  order: 0;
+}
+
+#editorTabs.tabs-bottom::-webkit-scrollbar { display: none; }
+
+header #editorTabs {
+  display: none !important; /* nunca no header */
+}
+
+body[data-mode="editor"] #editorTabs.tabs-bottom button.tab-btn {
+  flex: 0 0 auto;
+  height: auto;
+  min-height: 32px;
+  padding: 6px 11px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  box-shadow: none;
+}
+
+body[data-mode="editor"] #editorTabs.tabs-bottom button.tab-btn.active {
+  background: rgba(244, 63, 94, 0.14);
+  color: #fda4af;
+  border-color: rgba(244, 63, 94, 0.35);
+}
+
+/* Dock de opções da aba atual */
+body[data-mode="editor"] #studioDock {
+  flex: 0 0 auto !important;
+  max-height: 34vh;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  border-top: 1px solid var(--border-subtle);
+  background: var(--bg);
+  padding: 0 0 2px;
+}
+
+body[data-mode="editor"] #studioDock .panel {
+  display: none;
+  margin: 0;
+  animation: none;
+  overflow: visible;
+  flex: none !important;
+  height: auto !important;
+  min-height: 0 !important;
+}
+
+body[data-mode="editor"] #studioDock .panel.active {
+  display: block !important;
+}
+
+body[data-mode="editor"] #studioDock .tools-card,
+body[data-mode="editor"] #studioDock .card {
+  margin: 0 !important;
+  border-radius: 0 !important;
+  border-left: none !important;
+  border-right: none !important;
+  border-bottom: none !important;
+  box-shadow: none !important;
+  padding: 8px 10px !important;
+  background: var(--surface) !important;
+}
+
+body[data-mode="editor"] #studioDock .card h2 {
+  font-size: 0.8rem !important;
+  margin-bottom: 6px !important;
+}
+
+body[data-mode="editor"] #studioDock .hint,
+body[data-mode="editor"] #studioDock .tools-hint {
+  font-size: 0.72rem !important;
+  margin-bottom: 6px !important;
+  padding: 6px 8px !important;
+}
+
+body[data-mode="editor"] #studioDock .toolbar-scroll > button {
+  height: 32px !important;
+  padding: 0 10px !important;
+  font-size: 0.74rem !important;
+}
+
+/* Não esconder editorTabs no switchMode via hidden no header — fica no dock */
+body[data-mode="editor"] #editorTabs[hidden] {
+  display: flex !important;
+}

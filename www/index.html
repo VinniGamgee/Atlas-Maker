@@ -48,23 +48,13 @@
       <button type="button" class="tab-btn" data-tab="editor">Moldura</button>
       <button type="button" class="tab-btn" data-tab="gallery">Galeria</button>
     </nav>
-    <nav class="tabs" id="editorTabs">
-      <button type="button" class="tab-btn active" data-etab="canvas">Canvas</button>
-      <button type="button" class="tab-btn" data-etab="crop">Cortar</button>
-      <button type="button" class="tab-btn" data-etab="draw">Pincel</button>
-      <button type="button" class="tab-btn" data-etab="text">Texto</button>
-      <button type="button" class="tab-btn" data-etab="transform">Transformar</button>
-      <button type="button" class="tab-btn" data-etab="layers">Colagem</button>
-      <button type="button" class="tab-btn" data-etab="history">Histórico</button>
-      <button type="button" class="tab-btn" data-etab="bg">Fundo</button>
-      <button type="button" class="tab-btn" data-etab="export">Exportar</button>
-    </nav>
   </header>
 
   <main>
     <!-- ========== MODO EDITOR GERAL (principal) ========== -->
     <div id="mode-editor" class="app-mode active">
-      <section id="epanel-canvas" class="panel active panel-stage">
+      <!-- Stage sempre visível -->
+      <div class="studio-stage" id="studioStage">
         <div class="stage-card">
           <div class="stage-top">
             <div class="dropzone dropzone-compact" id="genDrop">
@@ -77,18 +67,36 @@
               <canvas id="genCanvas"></canvas>
             </div>
           </div>
-          <div class="stage-toolbar" id="genToolbar">
-            <div class="toolbar-scroll">
-              <button type="button" id="genZoomOut" class="secondary" disabled>−</button>
-              <button type="button" id="genZoomIn" class="secondary" disabled>+</button>
-              <button type="button" id="genZoomFit" class="secondary" disabled>Cabem</button>
-              <button type="button" id="genZoom1" class="secondary" disabled>1:1</button>
-              <span class="toolbar-sep"></span>
-              <button type="button" id="genUndo" class="secondary" disabled>Desfazer</button>
-              <button type="button" id="genReset" class="secondary" disabled>Resetar</button>
-            </div>
-          </div>
           <p class="status-msg status-compact" id="genStatus">Studio · abra uma imagem</p>
+        </div>
+      </div>
+
+      <!-- Única navegação do editor (inferior) -->
+      <nav class="tabs tabs-bottom" id="editorTabs">
+        <button type="button" class="tab-btn active" data-etab="canvas">Canvas</button>
+        <button type="button" class="tab-btn" data-etab="crop">Cortar</button>
+        <button type="button" class="tab-btn" data-etab="draw">Pincel</button>
+        <button type="button" class="tab-btn" data-etab="text">Texto</button>
+        <button type="button" class="tab-btn" data-etab="transform">Transformar</button>
+        <button type="button" class="tab-btn" data-etab="layers">Colagem</button>
+        <button type="button" class="tab-btn" data-etab="history">Histórico</button>
+        <button type="button" class="tab-btn" data-etab="bg">Fundo</button>
+        <button type="button" class="tab-btn" data-etab="export">Exportar</button>
+      </nav>
+
+      <!-- Opções da aba atual -->
+      <div class="studio-dock" id="studioDock">
+      <section id="epanel-canvas" class="panel active panel-tools">
+        <div class="tools-card">
+          <div class="toolbar-scroll" id="genToolbar">
+            <button type="button" id="genZoomOut" class="secondary" disabled>−</button>
+            <button type="button" id="genZoomIn" class="secondary" disabled>+</button>
+            <button type="button" id="genZoomFit" class="secondary" disabled>Cabem</button>
+            <button type="button" id="genZoom1" class="secondary" disabled>1:1</button>
+            <span class="toolbar-sep"></span>
+            <button type="button" id="genUndo" class="secondary" disabled>Desfazer</button>
+            <button type="button" id="genReset" class="secondary" disabled>Resetar</button>
+          </div>
         </div>
       </section>
 
@@ -226,7 +234,8 @@
           <p class="status-msg" id="genExportStatus"></p>
         </div>
       </section>
-    </div>
+      </div><!-- /studioDock -->
+    </div><!-- /mode-editor -->
 
     <!-- ========== MODO BALATRO ATLAS (ferramenta) ========== -->
     <div id="mode-balatro" class="app-mode" hidden>
