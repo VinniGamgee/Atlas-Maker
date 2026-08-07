@@ -10,7 +10,6 @@
   <script src="cordova.js" onerror="console.log('sem cordova')"></script>
 </head>
 <body>
-<h1>TESTE NOVA BUILD</h1>
   <header>
     <div class="header-top">
       <h1>✂️ <span id="appTitle">Pixel Studio</span></h1>
