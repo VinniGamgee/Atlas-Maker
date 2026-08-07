@@ -10,7 +10,6 @@
   <script src="cordova.js" onerror="console.log('sem cordova')"></script>
 </head>
 <body>
-<h1>TESTE NOVA BUILD</h1>
   <header>
     <div class="header-top">
       <h1>✂️ <span id="appTitle">Pixel Studio</span></h1>
@@ -29,6 +28,8 @@
     <nav class="tabs" id="editorTabs">
       <button type="button" class="tab-btn active" data-etab="canvas">Canvas</button>
       <button type="button" class="tab-btn" data-etab="crop">Cortar</button>
+      <button type="button" class="tab-btn" data-etab="transform">Transformar</button>
+      <button type="button" class="tab-btn" data-etab="layers">Colagem</button>
       <button type="button" class="tab-btn" data-etab="bg">Fundo</button>
       <button type="button" class="tab-btn" data-etab="export">Exportar</button>
     </nav>
@@ -74,6 +75,60 @@
             <button type="button" id="genCropCancel" class="secondary" disabled>Cancelar</button>
           </div>
           <p class="status-msg" id="genCropStatus"></p>
+        </div>
+      </section>
+
+
+      <section id="epanel-transform" class="panel">
+        <div class="card">
+          <h2>Transformar</h2>
+          <p class="hint">Gira, espelha e redimensiona o canvas (nearest-neighbor · pixel art).</p>
+          <div class="row">
+            <button type="button" id="genRotL" class="secondary" disabled>Girar 90° ↺</button>
+            <button type="button" id="genRotR" class="secondary" disabled>Girar 90° ↻</button>
+            <button type="button" id="genFlipH" class="secondary" disabled>Espelhar H</button>
+            <button type="button" id="genFlipV" class="secondary" disabled>Espelhar V</button>
+          </div>
+          <div class="row" style="margin-top:10px;align-items:flex-end">
+            <div>
+              <label>Largura (px)</label><br>
+              <input type="number" id="genResizeW" min="1" max="4096" style="width:100px" disabled>
+            </div>
+            <div>
+              <label>Altura (px)</label><br>
+              <input type="number" id="genResizeH" min="1" max="4096" style="width:100px" disabled>
+            </div>
+            <label style="color:var(--text)"><input type="checkbox" id="genResizeKeep" checked> Manter proporção</label>
+            <button type="button" id="genResizeApply" disabled>Redimensionar</button>
+          </div>
+          <p class="status-msg" id="genTransformStatus"></p>
+        </div>
+      </section>
+
+      <section id="epanel-layers" class="panel">
+        <div class="card">
+          <h2>Colagem · Camadas</h2>
+          <p class="hint">Adicione imagens como camadas. Com <strong>Mover camada</strong> ativo, arraste no canvas para posicionar a camada selecionada (pan do viewport fica desligado).</p>
+          <div class="row">
+            <div class="dropzone" id="layerDrop" style="flex:1;padding:12px">
+              <p style="font-size:0.85rem">+ Adicionar camada (imagem)</p>
+              <input type="file" id="layerInput" accept="image/*">
+            </div>
+          </div>
+          <div id="layerList" class="layer-list"></div>
+          <div class="row" style="margin-top:10px">
+            <button type="button" id="genLayerMove" class="secondary" disabled>Mover camada</button>
+            <button type="button" id="genLayerUp" class="secondary" disabled>↑</button>
+            <button type="button" id="genLayerDown" class="secondary" disabled>↓</button>
+            <button type="button" id="genLayerDelete" class="danger" disabled>Excluir</button>
+            <button type="button" id="genLayerMerge" disabled>Mesclar todas</button>
+          </div>
+          <div class="tol-row">
+            <label>Escala da camada %</label>
+            <input type="range" id="genLayerScale" min="10" max="300" value="100" disabled>
+            <span id="genLayerScaleVal">100</span>
+          </div>
+          <p class="status-msg" id="genLayerStatus"></p>
         </div>
       </section>
 

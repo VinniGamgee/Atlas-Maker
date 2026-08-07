@@ -1508,9 +1508,8 @@
 
 
 
-  // ========== MODE SWITCH + GENERAL EDITOR (principal) ==========
+  // ========== MODE SWITCH + GENERAL EDITOR v2 ==========
   (function () {
-    var genImage = null;      // HTMLImageElement source original session
     var genCanvas = document.getElementById('genCanvas');
     var genViewport = document.getElementById('genViewport');
     if (!genCanvas || !genViewport) return;
@@ -1519,6 +1518,12 @@
     var workCanvas = document.createElement('canvas');
     var workCtx = workCanvas.getContext('2d', { willReadFrequently: true });
 
+    // layers: { id, name, canvas, x, y, scale }
+    var layers = [];
+    var activeLayer = -1;
+    var layerMoveMode = false;
+
+    var genImage = null;
     var scale = 1;
     var panX = 0, panY = 0;
     var genUndoStack = [];
@@ -1526,7 +1531,7 @@
 
     var cropMode = false;
     var cropStart = null;
-    var cropBox = null; // {x,y,w,h} in image pixels
+    var cropBox = null;
     var cropEl = document.createElement('div');
     cropEl.className = 'crop-rect';
     genViewport.appendChild(cropEl);
@@ -1543,22 +1548,127 @@
       var el = document.getElementById('genExportStatus');
       if (el) el.textContent = msg || '';
     }
+    function genTransformStatus(msg) {
+      var el = document.getElementById('genTransformStatus');
+      if (el) el.textContent = msg || '';
+    }
+    function genLayerStatus(msg) {
+      var el = document.getElementById('genLayerStatus');
+      if (el) el.textContent = msg || '';
+    }
 
     function setGenEnabled(on) {
       ['genZoomOut','genZoomIn','genZoomFit','genZoom1','genUndo','genReset',
-       'genCropStart','genExport','genToAtlas','genToRemover'].forEach(function (id) {
+       'genCropStart','genExport','genToAtlas','genToRemover',
+       'genRotL','genRotR','genFlipH','genFlipV','genResizeApply',
+       'genLayerMove','genLayerMerge'].forEach(function (id) {
         var el = document.getElementById(id);
         if (el) el.disabled = !on;
       });
+      var rw = document.getElementById('genResizeW');
+      var rh = document.getElementById('genResizeH');
+      if (rw) rw.disabled = !on;
+      if (rh) rh.disabled = !on;
       document.getElementById('genUndo').disabled = !on || genUndoStack.length === 0;
+      updateLayerButtons();
+    }
+
+    function updateLayerButtons() {
+      var has = layers.length > 0;
+      var act = activeLayer >= 0 && activeLayer < layers.length;
+      var bm = document.getElementById('genLayerMove');
+      var bu = document.getElementById('genLayerUp');
+      var bd = document.getElementById('genLayerDown');
+      var bdel = document.getElementById('genLayerDelete');
+      var bsc = document.getElementById('genLayerScale');
+      if (bm) bm.disabled = !has;
+      if (bu) bu.disabled = !act || activeLayer >= layers.length - 1;
+      if (bd) bd.disabled = !act || activeLayer <= 0;
+      if (bdel) bdel.disabled = !act;
+      if (bsc) bsc.disabled = !act;
     }
 
     function pushGenUndo() {
       try {
-        genUndoStack.push(workCtx.getImageData(0, 0, workCanvas.width, workCanvas.height));
+        compositeToWork();
+        genUndoStack.push({
+          w: workCanvas.width,
+          h: workCanvas.height,
+          data: workCtx.getImageData(0, 0, workCanvas.width, workCanvas.height),
+          layersJson: snapshotLayers()
+        });
         if (genUndoStack.length > MAX_GEN_UNDO) genUndoStack.shift();
         document.getElementById('genUndo').disabled = false;
-      } catch (e) {}
+      } catch (e) { console.log(e); }
+    }
+
+    function snapshotLayers() {
+      return layers.map(function (L) {
+        return {
+          id: L.id, name: L.name, x: L.x, y: L.y, scale: L.scale,
+          dataUrl: L.canvas.toDataURL('image/png')
+        };
+      });
+    }
+
+    function restoreLayers(snap) {
+      layers = [];
+      var pending = snap.length;
+      if (!pending) {
+        activeLayer = -1;
+        compositeToWork();
+        applyWorkToView();
+        renderLayerList();
+        return;
+      }
+      snap.forEach(function (s, i) {
+        var img = new Image();
+        img.onload = function () {
+          var c = document.createElement('canvas');
+          c.width = img.width; c.height = img.height;
+          c.getContext('2d').drawImage(img, 0, 0);
+          layers[i] = { id: s.id, name: s.name, canvas: c, x: s.x, y: s.y, scale: s.scale };
+          pending--;
+          if (pending <= 0) {
+            layers = layers.filter(Boolean);
+            activeLayer = layers.length ? layers.length - 1 : -1;
+            compositeToWork();
+            applyWorkToView();
+            renderLayerList();
+            updateLayerButtons();
+          }
+        };
+        img.src = s.dataUrl;
+      });
+    }
+
+    function compositeToWork() {
+      if (!layers.length) {
+        workCanvas.width = 1;
+        workCanvas.height = 1;
+        workCtx.clearRect(0, 0, 1, 1);
+        return;
+      }
+      var maxR = 0, maxB = 0;
+      layers.forEach(function (L) {
+        var dw = Math.max(1, Math.round(L.canvas.width * L.scale));
+        var dh = Math.max(1, Math.round(L.canvas.height * L.scale));
+        maxR = Math.max(maxR, Math.ceil(L.x + dw));
+        maxB = Math.max(maxB, Math.ceil(L.y + dh));
+      });
+      workCanvas.width = Math.max(1, maxR);
+      workCanvas.height = Math.max(1, maxB);
+      workCtx.imageSmoothingEnabled = false;
+      workCtx.clearRect(0, 0, workCanvas.width, workCanvas.height);
+      layers.forEach(function (L) {
+        var dw = Math.max(1, Math.round(L.canvas.width * L.scale));
+        var dh = Math.max(1, Math.round(L.canvas.height * L.scale));
+        workCtx.drawImage(L.canvas, Math.round(L.x), Math.round(L.y), dw, dh);
+      });
+      var rw = document.getElementById('genResizeW');
+      var rh = document.getElementById('genResizeH');
+      if (rw) rw.value = workCanvas.width;
+      if (rh) rh.value = workCanvas.height;
     }
 
     function applyWorkToView() {
@@ -1585,32 +1695,114 @@
       layoutCanvas();
     }
 
+    function addLayerFromImage(img, name) {
+      var c = document.createElement('canvas');
+      c.width = img.width;
+      c.height = img.height;
+      var cx = c.getContext('2d');
+      cx.imageSmoothingEnabled = false;
+      cx.drawImage(img, 0, 0);
+      layers.push({
+        id: Date.now() + Math.random(),
+        name: name || ('Camada ' + (layers.length + 1)),
+        canvas: c,
+        x: 0,
+        y: 0,
+        scale: 1
+      });
+      activeLayer = layers.length - 1;
+      compositeToWork();
+      applyWorkToView();
+      renderLayerList();
+      updateLayerButtons();
+      var sc = document.getElementById('genLayerScale');
+      if (sc) {
+        sc.value = 100;
+        document.getElementById('genLayerScaleVal').textContent = '100';
+      }
+    }
+
     function loadGenFile(file) {
       var reader = new FileReader();
       reader.onload = function (ev) {
         var img = new Image();
         img.onload = function () {
           genImage = img;
-          workCanvas.width = img.width;
-          workCanvas.height = img.height;
-          workCtx.imageSmoothingEnabled = false;
-          workCtx.clearRect(0, 0, img.width, img.height);
-          workCtx.drawImage(img, 0, 0);
+          layers = [];
           genUndoStack = [];
           cropMode = false;
           cropBox = null;
           cropEl.style.display = 'none';
-          applyWorkToView();
+          layerMoveMode = false;
+          genViewport.classList.remove('layer-move-mode');
+          addLayerFromImage(img, file.name || 'Base');
           fitScale();
           setGenEnabled(true);
-          genStatus(img.width + '×' + img.height + ' · zoom e pan ativos');
+          genStatus(img.width + '×' + img.height + ' · v2 colagem/transformar');
         };
         img.src = ev.target.result;
       };
       reader.readAsDataURL(file);
     }
 
-    // drop
+    function loadLayerFile(file) {
+      if (!layers.length) {
+        loadGenFile(file);
+        return;
+      }
+      var reader = new FileReader();
+      reader.onload = function (ev) {
+        var img = new Image();
+        img.onload = function () {
+          pushGenUndo();
+          addLayerFromImage(img, file.name || 'Camada');
+          genLayerStatus('Camada adicionada: ' + (file.name || ''));
+          fitScale();
+        };
+        img.src = ev.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function renderLayerList() {
+      var list = document.getElementById('layerList');
+      if (!list) return;
+      list.innerHTML = '';
+      // top of list = top layer (last in array)
+      for (var i = layers.length - 1; i >= 0; i--) {
+        (function (idx) {
+          var L = layers[idx];
+          var div = document.createElement('div');
+          div.className = 'layer-item' + (idx === activeLayer ? ' active' : '');
+          var thumb = document.createElement('canvas');
+          thumb.width = 36; thumb.height = 36;
+          var tctx = thumb.getContext('2d');
+          tctx.imageSmoothingEnabled = false;
+          tctx.drawImage(L.canvas, 0, 0, 36, 36);
+          div.appendChild(thumb);
+          var meta = document.createElement('div');
+          meta.className = 'meta';
+          meta.innerHTML = '<strong>' + L.name + '</strong><span>' +
+            L.canvas.width + '×' + L.canvas.height +
+            ' · ' + Math.round(L.scale * 100) + '% · (' + Math.round(L.x) + ',' + Math.round(L.y) + ')</span>';
+          div.appendChild(meta);
+          div.onclick = function () {
+            activeLayer = idx;
+            renderLayerList();
+            updateLayerButtons();
+            var sc = document.getElementById('genLayerScale');
+            if (sc) {
+              sc.value = Math.round(L.scale * 100);
+              document.getElementById('genLayerScaleVal').textContent = sc.value;
+            }
+            genLayerStatus('Selecionada: ' + L.name);
+          };
+          list.appendChild(div);
+        })(i);
+      }
+    }
+
+    // drops
     var genDrop = document.getElementById('genDrop');
     var genInput = document.getElementById('genInput');
     genDrop.addEventListener('click', function () { genInput.click(); });
@@ -1625,7 +1817,23 @@
       if (genInput.files[0]) loadGenFile(genInput.files[0]);
     });
 
-    // pan + pinch zoom
+    var layerDrop = document.getElementById('layerDrop');
+    var layerInput = document.getElementById('layerInput');
+    if (layerDrop && layerInput) {
+      layerDrop.addEventListener('click', function () { layerInput.click(); });
+      layerDrop.addEventListener('dragover', function (e) { e.preventDefault(); layerDrop.classList.add('dragover'); });
+      layerDrop.addEventListener('dragleave', function () { layerDrop.classList.remove('dragover'); });
+      layerDrop.addEventListener('drop', function (e) {
+        e.preventDefault();
+        layerDrop.classList.remove('dragover');
+        if (e.dataTransfer.files[0]) loadLayerFile(e.dataTransfer.files[0]);
+      });
+      layerInput.addEventListener('change', function () {
+        if (layerInput.files[0]) loadLayerFile(layerInput.files[0]);
+      });
+    }
+
+    // pan / pinch / layer move / crop
     var pointers = new Map();
     var lastPinchDist = 0;
 
@@ -1661,6 +1869,15 @@
         return;
       }
 
+      if (layerMoveMode && activeLayer >= 0 && pointers.size === 1) {
+        var L = layers[activeLayer];
+        L.x += dx / scale;
+        L.y += dy / scale;
+        compositeToWork();
+        applyWorkToView();
+        return;
+      }
+
       if (pointers.size === 1 && !cropMode) {
         panX += dx;
         panY += dy;
@@ -1670,9 +1887,9 @@
         var dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
         if (lastPinchDist > 0) {
           var factor = dist / lastPinchDist;
-          var rect = genViewport.getBoundingClientRect();
-          var cx = (pts[0].x + pts[1].x) / 2 - rect.left;
-          var cy = (pts[0].y + pts[1].y) / 2 - rect.top;
+          var rect2 = genViewport.getBoundingClientRect();
+          var cx = (pts[0].x + pts[1].x) / 2 - rect2.left;
+          var cy = (pts[0].y + pts[1].y) / 2 - rect2.top;
           var wx = (cx - panX) / scale;
           var wy = (cy - panY) / scale;
           scale = Math.min(32, Math.max(0.05, scale * factor));
@@ -1688,9 +1905,10 @@
       if (pointers.size < 2) lastPinchDist = 0;
       if (cropMode && cropBox && cropBox.w > 2 && cropBox.h > 2) {
         document.getElementById('genCropApply').disabled = false;
-        genCropStatus(
-          'Área: ' + Math.round(cropBox.w) + '×' + Math.round(cropBox.h) + ' px'
-        );
+        genCropStatus('Área: ' + Math.round(cropBox.w) + '×' + Math.round(cropBox.h) + ' px');
+      }
+      if (layerMoveMode && activeLayer >= 0) {
+        renderLayerList();
       }
     }
     genViewport.addEventListener('pointerup', endPointer);
@@ -1724,12 +1942,10 @@
     }
 
     document.getElementById('genZoomIn').onclick = function () {
-      scale = Math.min(32, scale * 1.25);
-      layoutCanvas();
+      scale = Math.min(32, scale * 1.25); layoutCanvas();
     };
     document.getElementById('genZoomOut').onclick = function () {
-      scale = Math.max(0.05, scale / 1.25);
-      layoutCanvas();
+      scale = Math.max(0.05, scale / 1.25); layoutCanvas();
     };
     document.getElementById('genZoomFit').onclick = fitScale;
     document.getElementById('genZoom1').onclick = function () {
@@ -1741,11 +1957,22 @@
 
     document.getElementById('genUndo').onclick = function () {
       if (!genUndoStack.length) return;
-      var data = genUndoStack.pop();
-      workCanvas.width = data.width;
-      workCanvas.height = data.height;
-      workCtx.putImageData(data, 0, 0);
-      applyWorkToView();
+      var snap = genUndoStack.pop();
+      if (snap.layersJson) {
+        restoreLayers(snap.layersJson);
+      } else {
+        workCanvas.width = snap.w;
+        workCanvas.height = snap.h;
+        workCtx.putImageData(snap.data, 0, 0);
+        // flatten to single layer
+        var c = document.createElement('canvas');
+        c.width = snap.w; c.height = snap.h;
+        c.getContext('2d').putImageData(snap.data, 0, 0);
+        layers = [{ id: Date.now(), name: 'Desfazer', canvas: c, x: 0, y: 0, scale: 1 }];
+        activeLayer = 0;
+        applyWorkToView();
+        renderLayerList();
+      }
       document.getElementById('genUndo').disabled = genUndoStack.length === 0;
       genStatus('Desfeito.');
     };
@@ -1753,24 +1980,24 @@
     document.getElementById('genReset').onclick = function () {
       if (!genImage) return;
       pushGenUndo();
-      workCanvas.width = genImage.width;
-      workCanvas.height = genImage.height;
-      workCtx.drawImage(genImage, 0, 0);
-      applyWorkToView();
+      layers = [];
+      addLayerFromImage(genImage, 'Original');
       fitScale();
       genStatus('Resetado à imagem original da sessão.');
     };
 
+    // --- crop ---
     document.getElementById('genCropStart').onclick = function () {
       if (!workCanvas.width) return;
       cropMode = true;
+      layerMoveMode = false;
+      genViewport.classList.remove('layer-move-mode');
       cropBox = null;
       cropStart = null;
       cropEl.style.display = 'none';
       document.getElementById('genCropApply').disabled = true;
       document.getElementById('genCropCancel').disabled = false;
       genCropStatus('Arraste no canvas para marcar o retângulo.');
-      // go to canvas tab visually
       document.querySelector('[data-etab="canvas"]').click();
     };
     document.getElementById('genCropCancel').onclick = function () {
@@ -1784,28 +2011,208 @@
     document.getElementById('genCropApply').onclick = function () {
       if (!cropBox || cropBox.w < 1 || cropBox.h < 1) return;
       pushGenUndo();
+      compositeToWork();
       var x = Math.max(0, Math.floor(cropBox.x));
       var y = Math.max(0, Math.floor(cropBox.y));
       var w = Math.min(workCanvas.width - x, Math.ceil(cropBox.w));
       var h = Math.min(workCanvas.height - y, Math.ceil(cropBox.h));
       if (w < 1 || h < 1) return;
       var data = workCtx.getImageData(x, y, w, h);
-      workCanvas.width = w;
-      workCanvas.height = h;
-      workCtx.putImageData(data, 0, 0);
+      var c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      c.getContext('2d').putImageData(data, 0, 0);
+      layers = [{ id: Date.now(), name: 'Corte', canvas: c, x: 0, y: 0, scale: 1 }];
+      activeLayer = 0;
       cropMode = false;
       cropBox = null;
       cropEl.style.display = 'none';
       document.getElementById('genCropApply').disabled = true;
       document.getElementById('genCropCancel').disabled = true;
+      compositeToWork();
       applyWorkToView();
       fitScale();
+      renderLayerList();
       genCropStatus('Cortado para ' + w + '×' + h);
       genStatus('Canvas: ' + w + '×' + h);
     };
 
+    // --- transform ---
+    function flattenToSingleLayer() {
+      compositeToWork();
+      var c = document.createElement('canvas');
+      c.width = workCanvas.width;
+      c.height = workCanvas.height;
+      c.getContext('2d').drawImage(workCanvas, 0, 0);
+      layers = [{ id: Date.now(), name: 'Mesclado', canvas: c, x: 0, y: 0, scale: 1 }];
+      activeLayer = 0;
+    }
+
+    function rotateWork(dir) {
+      // dir 1 = 90 CW, -1 = 90 CCW
+      pushGenUndo();
+      flattenToSingleLayer();
+      var src = layers[0].canvas;
+      var c = document.createElement('canvas');
+      c.width = src.height;
+      c.height = src.width;
+      var ctx = c.getContext('2d');
+      ctx.imageSmoothingEnabled = false;
+      if (dir > 0) {
+        ctx.translate(c.width, 0);
+        ctx.rotate(Math.PI / 2);
+      } else {
+        ctx.translate(0, c.height);
+        ctx.rotate(-Math.PI / 2);
+      }
+      ctx.drawImage(src, 0, 0);
+      layers[0].canvas = c;
+      layers[0].x = 0; layers[0].y = 0;
+      compositeToWork();
+      applyWorkToView();
+      fitScale();
+      renderLayerList();
+      genTransformStatus('Girado 90°');
+    }
+
+    function flipWork(horizontal) {
+      pushGenUndo();
+      flattenToSingleLayer();
+      var src = layers[0].canvas;
+      var c = document.createElement('canvas');
+      c.width = src.width;
+      c.height = src.height;
+      var ctx = c.getContext('2d');
+      ctx.imageSmoothingEnabled = false;
+      if (horizontal) {
+        ctx.translate(c.width, 0);
+        ctx.scale(-1, 1);
+      } else {
+        ctx.translate(0, c.height);
+        ctx.scale(1, -1);
+      }
+      ctx.drawImage(src, 0, 0);
+      layers[0].canvas = c;
+      compositeToWork();
+      applyWorkToView();
+      renderLayerList();
+      genTransformStatus(horizontal ? 'Espelhado H' : 'Espelhado V');
+    }
+
+    document.getElementById('genRotR').onclick = function () { rotateWork(1); };
+    document.getElementById('genRotL').onclick = function () { rotateWork(-1); };
+    document.getElementById('genFlipH').onclick = function () { flipWork(true); };
+    document.getElementById('genFlipV').onclick = function () { flipWork(false); };
+
+    var genResizeKeep = document.getElementById('genResizeKeep');
+    var genResizeW = document.getElementById('genResizeW');
+    var genResizeH = document.getElementById('genResizeH');
+    var aspect = 1;
+    genResizeW.addEventListener('input', function () {
+      if (genResizeKeep.checked && workCanvas.height) {
+        aspect = workCanvas.width / workCanvas.height;
+        genResizeH.value = Math.max(1, Math.round(parseInt(genResizeW.value, 10) / aspect));
+      }
+    });
+    genResizeH.addEventListener('input', function () {
+      if (genResizeKeep.checked && workCanvas.width) {
+        aspect = workCanvas.width / workCanvas.height;
+        genResizeW.value = Math.max(1, Math.round(parseInt(genResizeH.value, 10) * aspect));
+      }
+    });
+    document.getElementById('genResizeApply').onclick = function () {
+      var nw = parseInt(genResizeW.value, 10);
+      var nh = parseInt(genResizeH.value, 10);
+      if (!nw || !nh || nw < 1 || nh < 1) return;
+      pushGenUndo();
+      flattenToSingleLayer();
+      var src = layers[0].canvas;
+      var c = document.createElement('canvas');
+      c.width = nw; c.height = nh;
+      var ctx = c.getContext('2d');
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(src, 0, 0, nw, nh);
+      layers[0].canvas = c;
+      layers[0].x = 0; layers[0].y = 0; layers[0].scale = 1;
+      compositeToWork();
+      applyWorkToView();
+      fitScale();
+      renderLayerList();
+      genTransformStatus('Redimensionado para ' + nw + '×' + nh);
+    };
+
+    // --- layers ---
+    document.getElementById('genLayerMove').onclick = function () {
+      layerMoveMode = !layerMoveMode;
+      cropMode = false;
+      genViewport.classList.toggle('layer-move-mode', layerMoveMode);
+      document.getElementById('genLayerMove').textContent = layerMoveMode ? 'Mover: ON' : 'Mover camada';
+      genLayerStatus(layerMoveMode ? 'Arraste no canvas para mover a camada ativa.' : 'Modo mover desligado (pan normal).');
+    };
+    document.getElementById('genLayerUp').onclick = function () {
+      if (activeLayer < 0 || activeLayer >= layers.length - 1) return;
+      pushGenUndo();
+      var t = layers[activeLayer];
+      layers[activeLayer] = layers[activeLayer + 1];
+      layers[activeLayer + 1] = t;
+      activeLayer++;
+      compositeToWork();
+      applyWorkToView();
+      renderLayerList();
+      updateLayerButtons();
+    };
+    document.getElementById('genLayerDown').onclick = function () {
+      if (activeLayer <= 0) return;
+      pushGenUndo();
+      var t = layers[activeLayer];
+      layers[activeLayer] = layers[activeLayer - 1];
+      layers[activeLayer - 1] = t;
+      activeLayer--;
+      compositeToWork();
+      applyWorkToView();
+      renderLayerList();
+      updateLayerButtons();
+    };
+    document.getElementById('genLayerDelete').onclick = function () {
+      if (activeLayer < 0) return;
+      pushGenUndo();
+      layers.splice(activeLayer, 1);
+      activeLayer = Math.min(activeLayer, layers.length - 1);
+      if (!layers.length) {
+        setGenEnabled(false);
+        workCanvas.width = 1; workCanvas.height = 1;
+        applyWorkToView();
+      } else {
+        compositeToWork();
+        applyWorkToView();
+      }
+      renderLayerList();
+      updateLayerButtons();
+      genLayerStatus('Camada removida.');
+    };
+    document.getElementById('genLayerMerge').onclick = function () {
+      if (layers.length < 1) return;
+      pushGenUndo();
+      flattenToSingleLayer();
+      compositeToWork();
+      applyWorkToView();
+      renderLayerList();
+      updateLayerButtons();
+      genLayerStatus('Camadas mescladas.');
+    };
+    document.getElementById('genLayerScale').oninput = function () {
+      if (activeLayer < 0) return;
+      var v = parseInt(document.getElementById('genLayerScale').value, 10);
+      document.getElementById('genLayerScaleVal').textContent = String(v);
+      layers[activeLayer].scale = v / 100;
+      compositeToWork();
+      applyWorkToView();
+      renderLayerList();
+    };
+
+    // export / bridges
     document.getElementById('genExport').onclick = function () {
       if (!workCanvas.width) return;
+      compositeToWork();
       workCanvas.toBlob(function (blob) {
         if (blob) {
           saveBlob(blob, 'pixel-studio-' + workCanvas.width + 'x' + workCanvas.height + '.png');
@@ -1816,21 +2223,18 @@
 
     document.getElementById('genToAtlas').onclick = function () {
       if (!workCanvas.width) return;
+      compositeToWork();
       workCanvas.toBlob(function (blob) {
         var reader = new FileReader();
         reader.onload = function (ev) {
           var img = new Image();
           img.onload = function () {
-            images.push({
-              id: Date.now(),
-              name: 'from-editor.png',
-              img: img,
-              dataUrl: ev.target.result
-            });
+            images.push({ id: Date.now(), name: 'from-editor.png', img: img, dataUrl: ev.target.result });
             renderThumbs();
             updateAtlasButtons();
             switchMode('balatro');
-            document.querySelector('#balatroTabs [data-tab="atlas"]').click();
+            var t = document.querySelector('#balatroTabs [data-tab="atlas"]');
+            if (t) t.click();
             genExportStatus('Enviado para o Atlas Balatro.');
           };
           img.src = ev.target.result;
@@ -1841,18 +2245,17 @@
 
     document.getElementById('genToRemover').onclick = function () {
       if (!workCanvas.width) return;
+      compositeToWork();
       workCanvas.toBlob(function (blob) {
         var reader = new FileReader();
         reader.onload = function (ev) {
           lastRemoverDataUrl = ev.target.result;
           var img = new Image();
           img.onload = function () {
-            fullW = img.width;
-            fullH = img.height;
+            fullW = img.width; fullH = img.height;
             undoStack = [];
             fullCanvas = document.createElement('canvas');
-            fullCanvas.width = fullW;
-            fullCanvas.height = fullH;
+            fullCanvas.width = fullW; fullCanvas.height = fullH;
             fullCtx = fullCanvas.getContext('2d', { willReadFrequently: true });
             fullCtx.drawImage(img, 0, 0);
             var maxDisp = Math.min(520, window.innerWidth - 40);
@@ -1861,15 +2264,15 @@
             srcCanvas.height = Math.round(fullH * scaleR);
             outCanvas.width = srcCanvas.width;
             outCanvas.height = srcCanvas.height;
-            redrawSrc();
-            clearOut();
+            redrawSrc(); clearOut();
             ['btnAI','btnMagic','btnSimple','btnResetRemover','btnDefringe','btnHardEdge','btnPadBalatro'].forEach(function (id) {
               var el = document.getElementById(id);
               if (el) el.disabled = false;
             });
             document.getElementById('genFromRemover').disabled = false;
             switchMode('balatro');
-            document.querySelector('#balatroTabs [data-tab="remover"]').click();
+            var t = document.querySelector('#balatroTabs [data-tab="remover"]');
+            if (t) t.click();
             setStatus('Imagem do Editor carregada no Removedor.');
           };
           img.src = ev.target.result;
@@ -1884,18 +2287,26 @@
         return;
       }
       pushGenUndo();
-      workCanvas.width = fullCanvas.width;
-      workCanvas.height = fullCanvas.height;
-      workCtx.clearRect(0, 0, workCanvas.width, workCanvas.height);
-      workCtx.drawImage(fullCanvas, 0, 0);
+      var c = document.createElement('canvas');
+      c.width = fullCanvas.width;
+      c.height = fullCanvas.height;
+      c.getContext('2d').drawImage(fullCanvas, 0, 0);
+      if (!layers.length) {
+        layers.push({ id: Date.now(), name: 'Removedor', canvas: c, x: 0, y: 0, scale: 1 });
+        activeLayer = 0;
+      } else {
+        layers.push({ id: Date.now(), name: 'Removedor', canvas: c, x: 0, y: 0, scale: 1 });
+        activeLayer = layers.length - 1;
+      }
+      compositeToWork();
       applyWorkToView();
       fitScale();
+      renderLayerList();
       setGenEnabled(true);
       switchMode('editor');
-      genStatus('Recebido do Removedor: ' + workCanvas.width + '×' + workCanvas.height);
+      genStatus('Recebido do Removedor: ' + c.width + '×' + c.height);
     };
 
-    // editor sub-tabs
     document.querySelectorAll('[data-etab]').forEach(function (btn) {
       btn.addEventListener('click', function () {
         document.querySelectorAll('#editorTabs .tab-btn').forEach(function (b) { b.classList.remove('active'); });
@@ -1922,7 +2333,6 @@
     document.getElementById('modeEditor').onclick = function () { switchMode('editor'); };
     document.getElementById('modeBalatro').onclick = function () { switchMode('balatro'); };
 
-    // default: editor principal
     switchMode('editor');
   })();
 
