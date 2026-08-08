@@ -718,9 +718,121 @@
     setStatus('Desfeito.');
   }
 
+  var _aiBusy = false;
+  var _imglyRemove = null; // cache do módulo
+
   function aiRemove() {
-    alert('No Capacitor/APK a IA online costuma falhar (CDN/WASM).\n\nUse MAGIC (remove fundo sozinho, offline) ou SIMPLE (toque na área).\n\nRodando Magic agora.');
-    magicRemove();
+    if (!fullCanvas) return;
+    if (_aiBusy) {
+      setStatus('IA já está processando…');
+      return;
+    }
+    _aiBusy = true;
+    simpleMode = false;
+    modeBadge.style.display = 'inline-block';
+    modeBadge.textContent = 'IA';
+    modeBadge.className = 'mode-badge magic';
+    srcCanvas.style.outline = '';
+    setStatus('IA: preparando imagem…');
+    setProgress(5);
+
+    function failToMagic(msg) {
+      _aiBusy = false;
+      console.warn('[AI remove]', msg);
+      setStatus((msg || 'IA indisponível') + ' → Magic offline');
+      if (window.__atlasToast) window.__atlasToast('IA falhou · Magic', 'info');
+      magicRemove();
+    }
+
+    function applyResultImage(img) {
+      try {
+        pushUndo();
+        fullW = img.width;
+        fullH = img.height;
+        fullCanvas.width = fullW;
+        fullCanvas.height = fullH;
+        fullCtx = fullCanvas.getContext('2d', { willReadFrequently: true });
+        fullCtx.clearRect(0, 0, fullW, fullH);
+        fullCtx.drawImage(img, 0, 0);
+
+        var maxDisp = Math.min(520, window.innerWidth - 40);
+        var scale = Math.min(1, maxDisp / Math.max(fullW, fullH));
+        srcCanvas.width = Math.round(fullW * scale);
+        srcCanvas.height = Math.round(fullH * scale);
+        outCanvas.width = srcCanvas.width;
+        outCanvas.height = srcCanvas.height;
+        redrawSrc();
+        showResult();
+        setProgress(100);
+        setStatus('IA OK · ' + fullW + '×' + fullH + ' · use Limpar franja se ainda houver borda');
+        if (window.__atlasToast) window.__atlasToast('Fundo removido (IA)', 'ok');
+      } catch (e) {
+        failToMagic('Erro ao aplicar resultado IA');
+        return;
+      }
+      _aiBusy = false;
+    }
+
+    fullCanvas.toBlob(function (blob) {
+      if (!blob) {
+        failToMagic('Não foi possível ler o canvas');
+        return;
+      }
+
+      var run = function (removeBackground) {
+        setStatus('IA: segmentando (pode demorar na 1ª vez)…');
+        setProgress(15);
+        var opts = {
+          progress: function (key, current, total) {
+            var pct = total ? Math.round(15 + (current / total) * 70) : 20;
+            setProgress(Math.min(90, pct));
+            if (key) setStatus('IA: ' + String(key) + '…');
+          },
+          // assets do modelo (CDN); 1ª execução baixa e o browser pode cachear
+          publicPath: 'https://staticimgly.com/@imgly/background-removal-data/1.5.5/dist/'
+        };
+        Promise.resolve(removeBackground(blob, opts))
+          .then(function (resultBlob) {
+            if (!resultBlob) throw new Error('Resultado vazio');
+            setProgress(90);
+            setStatus('IA: aplicando…');
+            var url = URL.createObjectURL(resultBlob);
+            var img = new Image();
+            img.onload = function () {
+              URL.revokeObjectURL(url);
+              applyResultImage(img);
+            };
+            img.onerror = function () {
+              URL.revokeObjectURL(url);
+              failToMagic('Falha ao carregar PNG da IA');
+            };
+            img.src = url;
+          })
+          .catch(function (err) {
+            failToMagic(err && err.message ? err.message : 'Falha no modelo');
+          });
+      };
+
+      if (_imglyRemove) {
+        run(_imglyRemove);
+        return;
+      }
+
+      setStatus('IA: baixando motor (internet na 1ª vez)…');
+      setProgress(8);
+
+      // dynamic import — funciona no WebView moderno do Capacitor
+      import('https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.5.5/+esm')
+        .then(function (mod) {
+          var fn = mod.removeBackground || (mod.default && mod.default.removeBackground) || mod.default;
+          if (typeof fn !== 'function') throw new Error('Módulo IA sem removeBackground');
+          _imglyRemove = fn;
+          run(fn);
+        })
+        .catch(function (err) {
+          failToMagic(err && err.message ? err.message : 'CDN/WASM bloqueado');
+        });
+    }, 'image/png');
   }
 
   function magicRemove() {

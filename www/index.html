@@ -341,7 +341,7 @@
         <h2>Ferramentas</h2>
         <div class="controls-box">
           <div class="row">
-            <button type="button" id="btnAI" disabled>IA (precisa internet)</button>
+            <button type="button" id="btnAI" disabled>IA (modelo)</button>
             <button type="button" id="btnMagic" disabled>Magic</button>
             <button type="button" id="btnSimple" disabled>Simple (clique)</button>
             <button type="button" id="btnUndo" class="secondary" disabled>Desfazer</button>
@@ -387,7 +387,9 @@
             <strong>Limpar franja:</strong> remove pixels com alpha baixo, descontamina RGB da borda e zera RGB em alpha 0 — elimina a linha preta no jogo.<br>
             <strong>Alpha duro:</strong> tudo ≥ limiar vira 255; abaixo vira 0 (borda seca, pixel art).<br>
             <strong>Margem Balatro 1px:</strong> força 1 px transparente em volta (71×95 / 142×190).<br>
-            <strong>Magic / Simple:</strong> offline. Use Limpar franja depois de remover o fundo.
+            <strong>IA:</strong> modelo de segmentação (1ª vez precisa internet para baixar o motor; depois pode usar cache).<br>
+            <strong>Magic / Simple:</strong> 100% offline. Se a IA falhar, o app usa Magic automaticamente.<br>
+            Use <strong>Limpar franja</strong> depois de remover o fundo (Balatro).
           </p>
           <p class="status-msg" id="removerStatus"></p>
         </div>
