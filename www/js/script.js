@@ -262,13 +262,14 @@
       setAtlasImportStatus('Selecione uma imagem PNG do atlas.');
       return;
     }
-    var parts = document.getElementById('cardSize').value.split('x');
-    var cw = parseInt(parts[0], 10);
-    var ch = parseInt(parts[1], 10);
-    var cols = Math.max(1, parseInt(document.getElementById('cols').value, 10) || 10);
-    var pad = Math.max(0, parseInt(document.getElementById('padding').value, 10) || 0);
     var append = !!(document.getElementById('atlasImportAppend') && document.getElementById('atlasImportAppend').checked);
     var keepEmpty = !!(document.getElementById('atlasImportEmpty') && document.getElementById('atlasImportEmpty').checked);
+    var manualParts = document.getElementById('cardSize').value.split('x');
+    var manualCw = parseInt(manualParts[0], 10);
+    var manualCh = parseInt(manualParts[1], 10);
+    var manualCols = Math.max(1, parseInt(document.getElementById('cols').value, 10) || 10);
+    var manualPad = Math.max(0, parseInt(document.getElementById('padding').value, 10) || 0);
+    var forceManual = !!(document.getElementById('atlasImportManual') && document.getElementById('atlasImportManual').checked);
 
     setAtlasImportStatus('Lendo atlas…');
     var reader = new FileReader();
@@ -277,45 +278,134 @@
       img.onload = function () {
         var iw = img.width;
         var ih = img.height;
-        // quantas colunas/linhas cabem com as configs atuais
-        var cellW = cw + pad;
-        var cellH = ch + pad;
-        if (cellW < 1 || cellH < 1) {
-          setAtlasImportStatus('Tamanho de carta inválido.');
-          return;
-        }
-        // com padding externo: totalW = cols*cw + (cols+1)*pad
-        // posição do slot (c,r): x = pad + c*(cw+pad), y = pad + r*(ch+pad)
-        var colsFit = Math.floor((iw - pad + pad) / cellW); // approx
-        // mais preciso: quantos slots cabem
-        colsFit = 0;
-        while (pad + colsFit * (cw + pad) + cw <= iw + 0.5) colsFit++;
-        var rowsFit = 0;
-        while (pad + rowsFit * (ch + pad) + ch <= ih + 0.5) rowsFit++;
 
-        // se padding 0, fallback simples
-        if (colsFit < 1) colsFit = Math.max(1, Math.floor(iw / cw));
-        if (rowsFit < 1) rowsFit = Math.max(1, Math.floor(ih / ch));
-
-        // se o usuário definiu cols e o atlas parece usar isso, respeita cols do form quando couber
-        if (cols >= 1 && cols <= colsFit + 2) {
-          // prefere o valor da UI se a largura bater
-          var expectedW = cols * cw + (cols + 1) * pad;
-          if (Math.abs(expectedW - iw) <= 2 || pad === 0 && iw % cw === 0) {
-            colsFit = cols;
-            if (pad === 0) rowsFit = Math.floor(ih / ch);
-            else {
-              rowsFit = 0;
-              while (pad + rowsFit * (ch + pad) + ch <= ih + 0.5) rowsFit++;
-              if (rowsFit < 1) rowsFit = Math.max(1, Math.floor(ih / ch));
+        function scoreLayout(cw, ch, cols, pad) {
+          if (cw < 8 || ch < 8 || cols < 1) return { ok: false, score: -1 };
+          var rows = 0;
+          if (pad === 0) {
+            if (iw % cw !== 0 || ih % ch !== 0) return { ok: false, score: -1 };
+            var cFit = iw / cw;
+            rows = ih / ch;
+            if (cFit !== cols && cols > 0) {
+              // se cols manual diferente do que divide, usar o que divide
+              cols = cFit;
             }
+            if (rows < 1 || cols < 1) return { ok: false, score: -1 };
+            return {
+              ok: true,
+              cw: cw, ch: ch, cols: cols, rows: rows, pad: 0,
+              score: 1000 + cols * rows // prefer more complete grids
+            };
+          }
+          // com padding: total = cols*cw + (cols+1)*pad
+          var totalW = cols * cw + (cols + 1) * pad;
+          if (Math.abs(totalW - iw) > 1) {
+            // tenta achar cols que feche a largura
+            var found = false;
+            for (var c = 1; c <= 64; c++) {
+              var tw = c * cw + (c + 1) * pad;
+              if (Math.abs(tw - iw) <= 1) {
+                cols = c;
+                totalW = tw;
+                found = true;
+                break;
+              }
+            }
+            if (!found) return { ok: false, score: -1 };
+          }
+          rows = 0;
+          while (pad + rows * (ch + pad) + ch <= ih + 0.5) rows++;
+          if (rows < 1) return { ok: false, score: -1 };
+          var totalH = rows * ch + (rows + 1) * pad;
+          var hPenalty = Math.abs(totalH - ih);
+          return {
+            ok: true,
+            cw: cw, ch: ch, cols: cols, rows: rows, pad: pad,
+            score: 800 - hPenalty + cols * rows
+          };
+        }
+
+        var best = null;
+        var candidates = [];
+
+        if (forceManual) {
+          candidates.push(scoreLayout(manualCw, manualCh, manualCols, manualPad));
+        } else {
+          // detecção automática: tamanhos Balatro + o que está no formulário
+          var sizes = [
+            { cw: 71, ch: 95 },
+            { cw: 142, ch: 190 },
+            { cw: manualCw, ch: manualCh }
+          ];
+          var pads = [0, manualPad, 1, 2];
+          var seen = {};
+          sizes.forEach(function (sz) {
+            pads.forEach(function (pad) {
+              var key = sz.cw + 'x' + sz.ch + 'p' + pad;
+              if (seen[key]) return;
+              seen[key] = true;
+              // cols candidato: divisão exata ou valor do form
+              var colTries = [];
+              if (pad === 0 && iw % sz.cw === 0) colTries.push(iw / sz.cw);
+              colTries.push(manualCols);
+              for (var c = 1; c <= 40; c++) colTries.push(c);
+              colTries.forEach(function (cols) {
+                var s = scoreLayout(sz.cw, sz.ch, cols, pad);
+                if (s.ok) candidates.push(s);
+              });
+            });
+          });
+        }
+
+        candidates.forEach(function (s) {
+          if (!s || !s.ok) return;
+          if (!best || s.score > best.score) best = s;
+        });
+
+        // desempate: se 71 e 142 ambos cabem, preferir o que NÃO gera "meia carta"
+        // (se iw/71 é ímpar e iw/142 é inteiro, 142 é melhor)
+        if (!forceManual && best) {
+          var alt = null;
+          candidates.forEach(function (s) {
+            if (!s.ok) return;
+            if (s.pad !== 0) return;
+            if (s.cw === 142 && s.ch === 190 && iw % 142 === 0 && ih % 190 === 0) {
+              if (!alt || s.cols * s.rows > (alt.cols * alt.rows)) alt = s;
+            }
+          });
+          if (alt && best.cw === 71) {
+            // se a altura/largura batem em 2x, preferir 2x
+            if (iw % 142 === 0 && ih % 190 === 0) best = alt;
           }
         }
 
-        if (colsFit < 1 || rowsFit < 1) {
-          setAtlasImportStatus('Não coube nenhum slot. Ajuste tamanho/colunas/padding.');
+        if (!best || !best.ok) {
+          setAtlasImportStatus(
+            'Não detectei a grade (' + iw + '×' + ih + '). Ajuste tamanho/colunas/padding e marque "Usar configs manuais".'
+          );
           return;
         }
+
+        var cw = best.cw;
+        var ch = best.ch;
+        var cols = best.cols;
+        var rows = best.rows;
+        var pad = best.pad;
+
+        // sincroniza UI com o que foi detectado
+        var sizeVal = cw + 'x' + ch;
+        var sizeSel = document.getElementById('cardSize');
+        if (sizeSel) {
+          var foundOpt = false;
+          for (var oi = 0; oi < sizeSel.options.length; oi++) {
+            if (sizeSel.options[oi].value === sizeVal) { foundOpt = true; break; }
+          }
+          if (foundOpt) sizeSel.value = sizeVal;
+        }
+        var colsEl = document.getElementById('cols');
+        if (colsEl) colsEl.value = String(cols);
+        var padEl = document.getElementById('padding');
+        if (padEl) padEl.value = String(pad);
 
         var offscreen = document.createElement('canvas');
         offscreen.width = cw;
@@ -328,8 +418,8 @@
         var index = 0;
         var r, c, x, y, data;
 
-        for (r = 0; r < rowsFit; r++) {
-          for (c = 0; c < colsFit; c++) {
+        for (r = 0; r < rows; r++) {
+          for (c = 0; c < cols; c++) {
             x = pad + c * (cw + pad);
             y = pad + r * (ch + pad);
             if (x + cw > iw + 0.5 || y + ch > ih + 0.5) continue;
@@ -340,7 +430,6 @@
               skippedEmpty++;
               if (!keepEmpty) continue;
             }
-            // clona para dataURL estável
             var cellCanvas = document.createElement('canvas');
             cellCanvas.width = cw;
             cellCanvas.height = ch;
@@ -348,8 +437,6 @@
             cctx.imageSmoothingEnabled = false;
             cctx.drawImage(offscreen, 0, 0);
             var dataUrl = cellCanvas.toDataURL('image/png');
-            var cellImg = new Image();
-            // sync path: dataURL already decoded enough after setting src in loop is async
             sliced.push({
               dataUrl: dataUrl,
               name: 'atlas_' + String(index + 1).padStart(3, '0') + '.png',
@@ -360,11 +447,10 @@
         }
 
         if (!sliced.length) {
-          setAtlasImportStatus('Nenhuma carta encontrada. Confira tamanho ' + cw + '×' + ch + ', colunas e padding.');
+          setAtlasImportStatus('Nenhuma carta visível. Tente "Manter slots vazios" ou configs manuais.');
           return;
         }
 
-        // carrega Images em ordem
         var loaded = [];
         var pending = sliced.length;
         sliced.forEach(function (slot, i) {
@@ -386,23 +472,22 @@
               renderThumbs();
               updateAtlasButtons();
               setAtlasImportStatus(
-                'Importado: ' + loaded.filter(Boolean).length + ' carta(s) · grade ~' +
-                colsFit + '×' + rowsFit + ' · slot ' + cw + '×' + ch +
-                (skippedEmpty ? ' · vazios: ' + skippedEmpty : '') +
-                (append ? ' · anexado' : ' · lista substituída')
+                'OK: ' + loaded.filter(Boolean).length + ' carta(s) · ' +
+                cw + '×' + ch + ' · ' + cols + ' colunas · pad ' + pad +
+                ' · atlas ' + iw + '×' + ih +
+                (skippedEmpty ? ' · vazios ignorados: ' + skippedEmpty : '') +
+                (append ? ' · anexado' : '')
               );
               if (window.__atlasToast) {
-                window.__atlasToast(loaded.filter(Boolean).length + ' cartas importadas', 'ok');
+                window.__atlasToast(loaded.filter(Boolean).length + ' cartas · ' + cw + '×' + ch, 'ok');
               }
               var st = document.getElementById('atlasStatus');
-              if (st) st.textContent = 'Pronto para adicionar novas imagens e gerar o atlas.';
+              if (st) st.textContent = 'Atlas importado. Adicione novas imagens e gere de novo.';
             }
           };
           im.onerror = function () {
             pending--;
-            if (pending <= 0) {
-              setAtlasImportStatus('Falha ao carregar algumas fatias.');
-            }
+            if (pending <= 0) setAtlasImportStatus('Falha ao carregar algumas fatias.');
           };
           im.src = slot.dataUrl;
         });

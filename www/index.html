@@ -278,18 +278,21 @@
 
       <div class="card">
         <h2>Importar atlas existente</h2>
-        <p class="hint">Carrega um PNG de atlas já pronto e fatia nas cartas usando o <strong>tamanho / colunas / padding</strong> acima. Depois você adiciona só as novas imagens e gera de novo.</p>
+        <p class="hint">Detecta sozinho se o atlas é <strong>71×95</strong> ou <strong>142×190</strong> (e as colunas). Se ainda cortar errado, marque <strong>Usar configs manuais</strong> com o tamanho certo.</p>
         <div class="dropzone" id="atlasImportDrop" style="padding:14px">
           <p>Toque ou arraste o atlas (PNG)</p>
-          <p style="font-size:0.75rem;margin-top:4px;color:var(--text-muted)">Confira o tamanho da carta e as colunas antes de importar</p>
+          <p style="font-size:0.75rem;margin-top:4px;color:var(--text-muted)">Preferência: padding 0 (padrão dos mods Balatro)</p>
           <input type="file" id="atlasImportInput" accept="image/png,image/*">
         </div>
-        <div class="row" style="margin-top:10px;gap:12px;align-items:center">
+        <div class="row" style="margin-top:10px;gap:12px;align-items:center;flex-wrap:wrap">
           <label style="color:var(--text);text-transform:none;letter-spacing:0;font-size:0.82rem;font-weight:500">
-            <input type="checkbox" id="atlasImportAppend"> Anexar à lista (senão substitui)
+            <input type="checkbox" id="atlasImportAppend"> Anexar à lista
           </label>
           <label style="color:var(--text);text-transform:none;letter-spacing:0;font-size:0.82rem;font-weight:500">
             <input type="checkbox" id="atlasImportEmpty"> Manter slots vazios
+          </label>
+          <label style="color:var(--text);text-transform:none;letter-spacing:0;font-size:0.82rem;font-weight:500">
+            <input type="checkbox" id="atlasImportManual"> Usar configs manuais
           </label>
         </div>
         <p class="status-msg" id="atlasImportStatus"></p>
