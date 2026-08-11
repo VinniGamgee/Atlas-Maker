@@ -215,6 +215,209 @@
   });
   fileInput.addEventListener('change', function () { handleFiles(fileInput.files); });
 
+  // ========== IMPORTAR ATLAS EXISTENTE ==========
+  var atlasImportDrop = document.getElementById('atlasImportDrop');
+  var atlasImportInput = document.getElementById('atlasImportInput');
+  if (atlasImportDrop && atlasImportInput) {
+    atlasImportDrop.addEventListener('click', function () { atlasImportInput.click(); });
+    atlasImportDrop.addEventListener('dragover', function (e) {
+      e.preventDefault();
+      atlasImportDrop.classList.add('dragover');
+    });
+    atlasImportDrop.addEventListener('dragleave', function () {
+      atlasImportDrop.classList.remove('dragover');
+    });
+    atlasImportDrop.addEventListener('drop', function (e) {
+      e.preventDefault();
+      atlasImportDrop.classList.remove('dragover');
+      if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+        importExistingAtlas(e.dataTransfer.files[0]);
+      }
+    });
+    atlasImportInput.addEventListener('change', function () {
+      if (atlasImportInput.files && atlasImportInput.files[0]) {
+        importExistingAtlas(atlasImportInput.files[0]);
+        atlasImportInput.value = '';
+      }
+    });
+  }
+
+  function setAtlasImportStatus(msg) {
+    var el = document.getElementById('atlasImportStatus');
+    if (el) el.textContent = msg || '';
+  }
+
+  function slotHasVisiblePixels(data, w, h) {
+    // data = Uint8ClampedArray RGBA
+    var i, a, n = w * h;
+    for (i = 0; i < n; i++) {
+      a = data[i * 4 + 3];
+      if (a > 8) return true;
+    }
+    return false;
+  }
+
+  function importExistingAtlas(file) {
+    if (!file || !(file.type && file.type.indexOf('image/') === 0)) {
+      setAtlasImportStatus('Selecione uma imagem PNG do atlas.');
+      return;
+    }
+    var parts = document.getElementById('cardSize').value.split('x');
+    var cw = parseInt(parts[0], 10);
+    var ch = parseInt(parts[1], 10);
+    var cols = Math.max(1, parseInt(document.getElementById('cols').value, 10) || 10);
+    var pad = Math.max(0, parseInt(document.getElementById('padding').value, 10) || 0);
+    var append = !!(document.getElementById('atlasImportAppend') && document.getElementById('atlasImportAppend').checked);
+    var keepEmpty = !!(document.getElementById('atlasImportEmpty') && document.getElementById('atlasImportEmpty').checked);
+
+    setAtlasImportStatus('Lendo atlas…');
+    var reader = new FileReader();
+    reader.onload = function (ev) {
+      var img = new Image();
+      img.onload = function () {
+        var iw = img.width;
+        var ih = img.height;
+        // quantas colunas/linhas cabem com as configs atuais
+        var cellW = cw + pad;
+        var cellH = ch + pad;
+        if (cellW < 1 || cellH < 1) {
+          setAtlasImportStatus('Tamanho de carta inválido.');
+          return;
+        }
+        // com padding externo: totalW = cols*cw + (cols+1)*pad
+        // posição do slot (c,r): x = pad + c*(cw+pad), y = pad + r*(ch+pad)
+        var colsFit = Math.floor((iw - pad + pad) / cellW); // approx
+        // mais preciso: quantos slots cabem
+        colsFit = 0;
+        while (pad + colsFit * (cw + pad) + cw <= iw + 0.5) colsFit++;
+        var rowsFit = 0;
+        while (pad + rowsFit * (ch + pad) + ch <= ih + 0.5) rowsFit++;
+
+        // se padding 0, fallback simples
+        if (colsFit < 1) colsFit = Math.max(1, Math.floor(iw / cw));
+        if (rowsFit < 1) rowsFit = Math.max(1, Math.floor(ih / ch));
+
+        // se o usuário definiu cols e o atlas parece usar isso, respeita cols do form quando couber
+        if (cols >= 1 && cols <= colsFit + 2) {
+          // prefere o valor da UI se a largura bater
+          var expectedW = cols * cw + (cols + 1) * pad;
+          if (Math.abs(expectedW - iw) <= 2 || pad === 0 && iw % cw === 0) {
+            colsFit = cols;
+            if (pad === 0) rowsFit = Math.floor(ih / ch);
+            else {
+              rowsFit = 0;
+              while (pad + rowsFit * (ch + pad) + ch <= ih + 0.5) rowsFit++;
+              if (rowsFit < 1) rowsFit = Math.max(1, Math.floor(ih / ch));
+            }
+          }
+        }
+
+        if (colsFit < 1 || rowsFit < 1) {
+          setAtlasImportStatus('Não coube nenhum slot. Ajuste tamanho/colunas/padding.');
+          return;
+        }
+
+        var offscreen = document.createElement('canvas');
+        offscreen.width = cw;
+        offscreen.height = ch;
+        var octx = offscreen.getContext('2d', { willReadFrequently: true });
+        octx.imageSmoothingEnabled = false;
+
+        var sliced = [];
+        var skippedEmpty = 0;
+        var index = 0;
+        var r, c, x, y, data;
+
+        for (r = 0; r < rowsFit; r++) {
+          for (c = 0; c < colsFit; c++) {
+            x = pad + c * (cw + pad);
+            y = pad + r * (ch + pad);
+            if (x + cw > iw + 0.5 || y + ch > ih + 0.5) continue;
+            octx.clearRect(0, 0, cw, ch);
+            octx.drawImage(img, x, y, cw, ch, 0, 0, cw, ch);
+            data = octx.getImageData(0, 0, cw, ch).data;
+            if (!slotHasVisiblePixels(data, cw, ch)) {
+              skippedEmpty++;
+              if (!keepEmpty) continue;
+            }
+            // clona para dataURL estável
+            var cellCanvas = document.createElement('canvas');
+            cellCanvas.width = cw;
+            cellCanvas.height = ch;
+            var cctx = cellCanvas.getContext('2d');
+            cctx.imageSmoothingEnabled = false;
+            cctx.drawImage(offscreen, 0, 0);
+            var dataUrl = cellCanvas.toDataURL('image/png');
+            var cellImg = new Image();
+            // sync path: dataURL already decoded enough after setting src in loop is async
+            sliced.push({
+              dataUrl: dataUrl,
+              name: 'atlas_' + String(index + 1).padStart(3, '0') + '.png',
+              order: index
+            });
+            index++;
+          }
+        }
+
+        if (!sliced.length) {
+          setAtlasImportStatus('Nenhuma carta encontrada. Confira tamanho ' + cw + '×' + ch + ', colunas e padding.');
+          return;
+        }
+
+        // carrega Images em ordem
+        var loaded = [];
+        var pending = sliced.length;
+        sliced.forEach(function (slot, i) {
+          var im = new Image();
+          im.onload = function () {
+            loaded[i] = {
+              id: Date.now() + Math.random() + i * 0.001,
+              name: slot.name,
+              img: im,
+              dataUrl: slot.dataUrl,
+              order: (append ? images.length : 0) + i
+            };
+            pending--;
+            if (pending <= 0) {
+              if (!append) images = [];
+              loaded.forEach(function (item) {
+                if (item) images.push(item);
+              });
+              renderThumbs();
+              updateAtlasButtons();
+              setAtlasImportStatus(
+                'Importado: ' + loaded.filter(Boolean).length + ' carta(s) · grade ~' +
+                colsFit + '×' + rowsFit + ' · slot ' + cw + '×' + ch +
+                (skippedEmpty ? ' · vazios: ' + skippedEmpty : '') +
+                (append ? ' · anexado' : ' · lista substituída')
+              );
+              if (window.__atlasToast) {
+                window.__atlasToast(loaded.filter(Boolean).length + ' cartas importadas', 'ok');
+              }
+              var st = document.getElementById('atlasStatus');
+              if (st) st.textContent = 'Pronto para adicionar novas imagens e gerar o atlas.';
+            }
+          };
+          im.onerror = function () {
+            pending--;
+            if (pending <= 0) {
+              setAtlasImportStatus('Falha ao carregar algumas fatias.');
+            }
+          };
+          im.src = slot.dataUrl;
+        });
+      };
+      img.onerror = function () {
+        setAtlasImportStatus('Não foi possível abrir a imagem do atlas.');
+      };
+      img.src = ev.target.result;
+    };
+    reader.onerror = function () {
+      setAtlasImportStatus('Erro ao ler o arquivo.');
+    };
+    reader.readAsDataURL(file);
+  }
+
   function handleFiles(files) {
     // Mantém a ordem do FileList (ordem de seleção no desktop;
     // no Android a galeria às vezes entrega por nome/data — use "Ordenar por nome").

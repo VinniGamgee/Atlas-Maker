@@ -277,10 +277,29 @@
       </div>
 
       <div class="card">
+        <h2>Importar atlas existente</h2>
+        <p class="hint">Carrega um PNG de atlas já pronto e fatia nas cartas usando o <strong>tamanho / colunas / padding</strong> acima. Depois você adiciona só as novas imagens e gera de novo.</p>
+        <div class="dropzone" id="atlasImportDrop" style="padding:14px">
+          <p>Toque ou arraste o atlas (PNG)</p>
+          <p style="font-size:0.75rem;margin-top:4px;color:var(--text-muted)">Confira o tamanho da carta e as colunas antes de importar</p>
+          <input type="file" id="atlasImportInput" accept="image/png,image/*">
+        </div>
+        <div class="row" style="margin-top:10px;gap:12px;align-items:center">
+          <label style="color:var(--text);text-transform:none;letter-spacing:0;font-size:0.82rem;font-weight:500">
+            <input type="checkbox" id="atlasImportAppend"> Anexar à lista (senão substitui)
+          </label>
+          <label style="color:var(--text);text-transform:none;letter-spacing:0;font-size:0.82rem;font-weight:500">
+            <input type="checkbox" id="atlasImportEmpty"> Manter slots vazios
+          </label>
+        </div>
+        <p class="status-msg" id="atlasImportStatus"></p>
+      </div>
+
+      <div class="card">
         <h2>Imagens das Cartas</h2>
         <div class="dropzone" id="dropzone">
           <p>Toque ou arraste imagens aqui</p>
-          <p style="font-size:0.78rem;margin-top:6px">PNG recomendado · várias de uma vez</p>
+          <p style="font-size:0.78rem;margin-top:6px">PNG recomendado · várias de uma vez · ou importe um atlas acima</p>
           <input type="file" id="fileInput" accept="image/*" multiple>
         </div>
         <div class="preview-area" id="thumbs"></div>
