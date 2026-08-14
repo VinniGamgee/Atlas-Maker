@@ -4,7 +4,6 @@ on:
   push:
     tags:
       - 'v*'
-  workflow_dispatch:
 
 permissions:
   contents: write
@@ -40,16 +39,11 @@ jobs:
       - name: Gerar APK
         run: |
           cd android
-          ./gradlew assembleDebug --stacktrace
-
-      - name: Listar APKs gerados
-        run: find android -name "*.apk" -type f
+          ./gradlew assembleDebug
 
       - name: Criar Release e enviar APK
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
           name: Atlas Maker ${{ github.ref_name }}
-          files: |
-            android/app/build/outputs/apk/debug/*.apk
-          fail_on_unmatched_files: false
+          files: android/app/build/outputs/apk/debug/app-debug.apk
