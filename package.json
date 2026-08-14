@@ -1,6 +1,6 @@
 {
   "name": "projeto",
-  "version": "1.0.15",
+  "version": "1.0.16",
   "description": "Atlas Maker",
   "main": "index.js",
   "scripts": {
